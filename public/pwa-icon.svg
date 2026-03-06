@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PartFinder Icon">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="#020617" />
+  <rect x="48" y="48" width="416" height="416" rx="96" fill="url(#bg)" opacity="0.18" />
+  <path d="M118 292l30-86c8-22 29-36 52-36h112c23 0 44 14 52 36l30 86" fill="none" stroke="#e2e8f0" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M140 292h232c19 0 34 15 34 34v20c0 11-9 20-20 20h-16c-11 0-20-9-20-20v-8H162v8c0 11-9 20-20 20h-16c-11 0-20-9-20-20v-20c0-19 15-34 34-34z" fill="#06b6d4" stroke="#e2e8f0" stroke-width="18" stroke-linejoin="round" />
+  <circle cx="182" cy="330" r="22" fill="#f8fafc" />
+  <circle cx="330" cy="330" r="22" fill="#f8fafc" />
+  <path d="M200 192h112" stroke="#f8fafc" stroke-width="22" stroke-linecap="round" />
+  <path d="M256 160v64" stroke="#f8fafc" stroke-width="22" stroke-linecap="round" />
+</svg>
