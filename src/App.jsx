@@ -32,6 +32,18 @@ const getChatIdForPart = (partId, firstUid, secondUid) => {
   return `part_${partId}_${ids.join('_')}`;
 };
 
+const getPartImages = (payload) => {
+  if (payload.imagesBase64?.length > 0) {
+    return payload.imagesBase64;
+  }
+
+  if (payload.imageBase64) {
+    return [payload.imageBase64];
+  }
+
+  return [];
+};
+
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('partfinder-theme') || 'amoled');
   const [user, setUser] = useState(null);
@@ -40,6 +52,7 @@ export default function App() {
   const [categories, setCategories] = useState([]);
   const [profilesByUid, setProfilesByUid] = useState({});
   const [chats, setChats] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [selectedChatId, setSelectedChatId] = useState('');
   const [partsLoading, setPartsLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -78,6 +91,7 @@ export default function App() {
       setCategories([]);
       setProfilesByUid({});
       setChats([]);
+      setFavorites([]);
       setSelectedChatId('');
       setSelectedCategory('Alle');
       setActiveView('marketplace');
@@ -105,7 +119,7 @@ export default function App() {
     });
 
     return undefined;
-  }, [user, pushToast, theme]);
+  }, [user, pushToast]);
 
   useEffect(() => {
     if (!user) {
@@ -219,6 +233,31 @@ export default function App() {
     return () => unsubscribe();
   }, [user, pushToast]);
 
+  useEffect(() => {
+    if (!user) {
+      return undefined;
+    }
+
+    const favoritesQuery = query(collection(db, 'favorites'), where('userUid', '==', user.uid));
+
+    const unsubscribe = onSnapshot(
+      favoritesQuery,
+      (snapshot) => {
+        const nextFavorites = snapshot.docs.map((item) => ({
+          id: item.id,
+          ...item.data(),
+        }));
+        setFavorites(nextFavorites);
+      },
+      (error) => {
+        console.error(error);
+        pushToast('Favoriten konnten nicht geladen werden.', 'error');
+      },
+    );
+
+    return () => unsubscribe();
+  }, [user, pushToast]);
+
   const userProfile = profilesByUid[user?.uid] || null;
 
   useEffect(() => {
@@ -241,9 +280,13 @@ export default function App() {
     return parts.filter((part) => part.categorySlug === activeSlug);
   }, [parts, selectedCategory]);
 
-  const myParts = useMemo(
-    () => parts.filter((part) => part.sellerUid === user?.uid),
-    [parts, user?.uid],
+  const myParts = useMemo(() => parts.filter((part) => part.sellerUid === user?.uid), [parts, user?.uid]);
+
+  const favoritePartIds = useMemo(() => favorites.map((favorite) => favorite.partId).filter(Boolean), [favorites]);
+
+  const favoriteParts = useMemo(
+    () => favoritePartIds.map((partId) => parts.find((part) => part.id === partId)).filter(Boolean),
+    [favoritePartIds, parts],
   );
 
   const unreadChatsCount = useMemo(
@@ -259,9 +302,15 @@ export default function App() {
 
     const normalizedCategory = normalizeCategoryName(payload.category);
     const categorySlug = slugify(normalizedCategory);
+    const imagesBase64 = getPartImages(payload);
 
     if (!categorySlug) {
       pushToast('Bitte eine gültige Kategorie angeben.', 'error');
+      return;
+    }
+
+    if (imagesBase64.length === 0) {
+      pushToast('Mindestens ein Bild ist erforderlich.', 'error');
       return;
     }
 
@@ -285,7 +334,12 @@ export default function App() {
         price: Number(payload.price),
         condition: payload.condition,
         description: payload.description.trim(),
-        imageBase64: payload.imageBase64,
+        imagesBase64,
+        imageBase64: imagesBase64[0],
+        imageCount: imagesBase64.length,
+        location: payload.location?.trim() || '',
+        shippingAvailable: Boolean(payload.shippingAvailable),
+        pickupAvailable: payload.pickupAvailable !== false,
         sellerUid: user.uid,
         sellerEmail: user.email || '',
         sellerDisplayName: userProfile?.displayName || getFallbackDisplayName(user),
@@ -341,6 +395,34 @@ export default function App() {
       console.error(error);
       pushToast('Inserat konnte nicht gelöscht werden.', 'error');
       throw error;
+    }
+  };
+
+  const handleToggleFavorite = async (part) => {
+    if (!user) {
+      pushToast('Bitte zuerst anmelden.', 'error');
+      return;
+    }
+
+    const favoriteId = `${user.uid}_${part.id}`;
+    const exists = favoritePartIds.includes(part.id);
+
+    try {
+      if (exists) {
+        await deleteDoc(doc(db, 'favorites', favoriteId));
+        pushToast('Aus der Merkliste entfernt.', 'success');
+      } else {
+        await setDoc(doc(db, 'favorites', favoriteId), {
+          userUid: user.uid,
+          partId: part.id,
+          sellerUid: part.sellerUid,
+          createdAt: serverTimestamp(),
+        });
+        pushToast('Zur Merkliste hinzugefügt.', 'success');
+      }
+    } catch (error) {
+      console.error(error);
+      pushToast('Merkliste konnte nicht aktualisiert werden.', 'error');
     }
   };
 
@@ -483,8 +565,8 @@ export default function App() {
     <div className="pf-page">
       {authLoading ? (
         <div className="flex min-h-screen items-center justify-center px-6">
-          <div className="w-full max-w-md rounded-3xl pf-card p-8 text-center">
-            <div className="mx-auto mb-4 h-14 w-14 animate-pulse rounded-2xl bg-[var(--pf-primary-soft)]" />
+          <div className="w-full max-w-md rounded-[1.75rem] pf-card p-8 text-center">
+            <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-[var(--pf-primary-soft)]" />
             <p className="text-lg font-semibold text-[var(--pf-text)]">Autoteile-Marktplatz lädt…</p>
             <p className="mt-2 text-sm text-[var(--pf-muted)]">Auth-Status wird geprüft.</p>
           </div>
@@ -511,6 +593,7 @@ export default function App() {
             unreadChatsCount={unreadChatsCount}
             theme={theme}
             onThemeChange={setTheme}
+            favoriteParts={favoriteParts}
           />
         ) : (
           <Marketplace
@@ -536,6 +619,8 @@ export default function App() {
             unreadChatsCount={unreadChatsCount}
             theme={theme}
             onThemeChange={setTheme}
+            favoritePartIds={favoritePartIds}
+            onToggleFavorite={handleToggleFavorite}
           />
         )
       ) : (

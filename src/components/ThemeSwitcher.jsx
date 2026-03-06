@@ -1,38 +1,36 @@
 const options = [
   {
     value: 'amoled',
-    title: 'AMOLED Black',
-    description: 'Tiefschwarz, kontrastreich, OLED-freundlich.',
+    label: 'AMOLED Black',
+    emoji: '🌙',
   },
   {
     value: 'light',
-    title: 'Smooth Light',
-    description: 'Helles, ruhiges UI mit weichen Flächen.',
+    label: 'Smooth Light',
+    emoji: '☀️',
   },
 ];
 
 export default function ThemeSwitcher({ value, onChange, compact = false }) {
   return (
-    <div className={`grid gap-3 ${compact ? 'sm:grid-cols-2' : 'md:grid-cols-2'}`}>
+    <div className={`inline-flex items-center gap-2 rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-1 ${compact ? '' : ''}`}>
       {options.map((option) => {
-        const active = value === option.value;
+        const active = option.value === value;
 
         return (
           <button
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
-            className={`rounded-[1.5rem] border px-4 py-4 text-left transition ${
-              active ? 'pf-card-selected' : 'pf-card-muted hover:-translate-y-0.5'
+            className={`flex h-10 w-10 items-center justify-center rounded-full text-lg transition ${
+              active
+                ? 'bg-[var(--pf-primary)] text-[#04111a] shadow-lg'
+                : 'text-[var(--pf-text)] hover:bg-[var(--pf-surface-3)]'
             }`}
+            title={option.label}
+            aria-label={option.label}
           >
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-[var(--pf-text)]">{option.title}</p>
-                <p className="mt-1 text-sm text-[var(--pf-muted)]">{option.description}</p>
-              </div>
-              <span className={`h-4 w-4 rounded-full border ${active ? 'border-[var(--pf-primary)] bg-[var(--pf-primary)]' : 'border-[color:var(--pf-border)] bg-transparent'}`} />
-            </div>
+            <span aria-hidden="true">{option.emoji}</span>
           </button>
         );
       })}

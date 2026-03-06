@@ -9,8 +9,20 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    function isString(data, field) {
+    function optionalString(data, field) {
       return !(field in data) || data[field] is string;
+    }
+
+    function optionalBool(data, field) {
+      return !(field in data) || data[field] is bool;
+    }
+
+    function optionalNumber(data, field) {
+      return !(field in data) || data[field] is number;
+    }
+
+    function optionalStringList(data, field) {
+      return !(field in data) || data[field] is list;
     }
 
     match /categories/{categoryId} {
@@ -24,13 +36,23 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if signedIn();
       allow create, update: if isSelf(userId)
-        && isString(request.resource.data, 'displayName')
-        && isString(request.resource.data, 'email')
-        && isString(request.resource.data, 'whatsappNumber')
-        && isString(request.resource.data, 'avatarBase64')
-        && isString(request.resource.data, 'themePreference')
-        && (!("chatEnabled" in request.resource.data) || request.resource.data.chatEnabled is bool);
+        && optionalString(request.resource.data, 'displayName')
+        && optionalString(request.resource.data, 'email')
+        && optionalString(request.resource.data, 'whatsappNumber')
+        && optionalString(request.resource.data, 'avatarBase64')
+        && optionalString(request.resource.data, 'themePreference')
+        && optionalBool(request.resource.data, 'chatEnabled');
       allow delete: if false;
+    }
+
+    match /favorites/{favoriteId} {
+      allow read: if signedIn() && resource.data.userUid == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.userUid == request.auth.uid
+        && request.resource.data.partId is string
+        && request.resource.data.sellerUid is string;
+      allow delete: if signedIn() && resource.data.userUid == request.auth.uid;
+      allow update: if false;
     }
 
     match /parts/{partId} {
@@ -44,10 +66,15 @@ service cloud.firestore {
         && request.resource.data.title is string
         && request.resource.data.description is string
         && request.resource.data.condition is string
-        && request.resource.data.imageBase64 is string
         && request.resource.data.sellerEmail is string
         && request.resource.data.sellerDisplayName is string
-        && request.resource.data.price is number;
+        && request.resource.data.imageBase64 is string
+        && request.resource.data.price is number
+        && optionalStringList(request.resource.data, 'imagesBase64')
+        && optionalNumber(request.resource.data, 'imageCount')
+        && optionalString(request.resource.data, 'location')
+        && optionalBool(request.resource.data, 'shippingAvailable')
+        && optionalBool(request.resource.data, 'pickupAvailable');
       allow update: if signedIn()
         && resource.data.sellerUid == request.auth.uid
         && request.resource.data.sellerUid == request.auth.uid
@@ -58,10 +85,15 @@ service cloud.firestore {
         && request.resource.data.title is string
         && request.resource.data.description is string
         && request.resource.data.condition is string
-        && request.resource.data.imageBase64 is string
         && request.resource.data.sellerEmail is string
         && request.resource.data.sellerDisplayName is string
-        && request.resource.data.price is number;
+        && request.resource.data.imageBase64 is string
+        && request.resource.data.price is number
+        && optionalStringList(request.resource.data, 'imagesBase64')
+        && optionalNumber(request.resource.data, 'imageCount')
+        && optionalString(request.resource.data, 'location')
+        && optionalBool(request.resource.data, 'shippingAvailable')
+        && optionalBool(request.resource.data, 'pickupAvailable');
       allow delete: if signedIn() && resource.data.sellerUid == request.auth.uid;
     }
 
