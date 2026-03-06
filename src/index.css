@@ -1,9 +1,44 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #020617;
+  color-scheme: dark;
+  --pf-bg: #000000;
+  --pf-bg-soft: #05070b;
+  --pf-surface: rgba(10, 10, 10, 0.92);
+  --pf-surface-2: rgba(17, 17, 17, 0.9);
+  --pf-surface-3: rgba(23, 23, 23, 0.9);
+  --pf-border: rgba(255, 255, 255, 0.1);
+  --pf-text: #f8fafc;
+  --pf-muted: #94a3b8;
+  --pf-primary: #22d3ee;
+  --pf-primary-strong: #0891b2;
+  --pf-primary-soft: rgba(34, 211, 238, 0.12);
+  --pf-success: #34d399;
+  --pf-danger: #fb7185;
+  --pf-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+  --pf-gradient-top: radial-gradient(circle at top, rgba(34, 211, 238, 0.12), transparent 32%);
+  --pf-gradient-bottom: radial-gradient(circle at bottom right, rgba(56, 189, 248, 0.1), transparent 25%);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --pf-bg: #eef4f8;
+  --pf-bg-soft: #e6eef4;
+  --pf-surface: rgba(255, 255, 255, 0.86);
+  --pf-surface-2: rgba(250, 252, 255, 0.95);
+  --pf-surface-3: rgba(241, 245, 249, 0.9);
+  --pf-border: rgba(15, 23, 42, 0.1);
+  --pf-text: #0f172a;
+  --pf-muted: #475569;
+  --pf-primary: #0891b2;
+  --pf-primary-strong: #0e7490;
+  --pf-primary-soft: rgba(8, 145, 178, 0.08);
+  --pf-success: #059669;
+  --pf-danger: #e11d48;
+  --pf-shadow: 0 20px 48px rgba(15, 23, 42, 0.12);
+  --pf-gradient-top: radial-gradient(circle at top, rgba(8, 145, 178, 0.1), transparent 36%);
+  --pf-gradient-bottom: radial-gradient(circle at bottom right, rgba(14, 116, 144, 0.08), transparent 28%);
 }
 
 * {
@@ -16,13 +51,15 @@ body,
   min-height: 100%;
 }
 
+html {
+  background: var(--pf-bg);
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top, rgba(6, 182, 212, 0.08), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.08), transparent 25%),
-    #020617;
+  color: var(--pf-text);
+  background: var(--pf-gradient-top), var(--pf-gradient-bottom), linear-gradient(180deg, var(--pf-bg), var(--pf-bg-soft));
 }
 
 button,
@@ -32,11 +69,189 @@ textarea {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
 img {
   display: block;
   max-width: 100%;
 }
 
 ::selection {
-  background: rgba(34, 211, 238, 0.28);
+  background: rgba(34, 211, 238, 0.24);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--pf-text);
+  box-shadow: 0 0 0 1000px var(--pf-surface-3) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+.pf-page {
+  min-height: 100vh;
+  color: var(--pf-text);
+}
+
+.pf-glass {
+  background: var(--pf-surface);
+  border: 1px solid var(--pf-border);
+  box-shadow: var(--pf-shadow);
+  backdrop-filter: blur(22px);
+}
+
+.pf-card {
+  background: var(--pf-surface);
+  border: 1px solid var(--pf-border);
+  box-shadow: var(--pf-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.pf-card-muted {
+  background: var(--pf-surface-2);
+  border: 1px solid var(--pf-border);
+}
+
+.pf-card-selected {
+  background: linear-gradient(180deg, var(--pf-primary-soft), var(--pf-surface-2));
+  border: 1px solid color-mix(in srgb, var(--pf-primary) 55%, transparent);
+  box-shadow: 0 18px 38px color-mix(in srgb, var(--pf-primary) 14%, transparent);
+}
+
+.pf-hero-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pf-primary) 25%, transparent);
+  background: var(--pf-primary-soft);
+  color: var(--pf-primary);
+}
+
+.pf-stat {
+  background: var(--pf-surface-2);
+  border: 1px solid var(--pf-border);
+}
+
+.pf-input,
+.pf-select,
+.pf-textarea {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid var(--pf-border);
+  background: var(--pf-surface-3);
+  color: var(--pf-text);
+  outline: none;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pf-input::placeholder,
+.pf-textarea::placeholder {
+  color: color-mix(in srgb, var(--pf-muted) 90%, transparent);
+}
+
+.pf-input:focus,
+.pf-select:focus,
+.pf-textarea:focus {
+  border-color: color-mix(in srgb, var(--pf-primary) 58%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--pf-primary) 12%, transparent);
+}
+
+.pf-button-primary {
+  border-radius: 1rem;
+  background: var(--pf-primary);
+  color: #04111a;
+  font-weight: 800;
+  transition: transform 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
+}
+
+.pf-button-primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+.pf-button-secondary {
+  border-radius: 1rem;
+  border: 1px solid var(--pf-border);
+  background: var(--pf-surface-2);
+  color: var(--pf-text);
+  font-weight: 700;
+  transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+}
+
+.pf-button-secondary:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--pf-surface-2) 85%, var(--pf-primary-soft));
+}
+
+.pf-button-ghost {
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--pf-primary) 20%, var(--pf-border));
+  background: var(--pf-primary-soft);
+  color: var(--pf-primary);
+  font-weight: 700;
+}
+
+.pf-button-danger {
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--pf-danger) 28%, transparent);
+  background: color-mix(in srgb, var(--pf-danger) 12%, transparent);
+  color: var(--pf-danger);
+  font-weight: 700;
+}
+
+.pf-chip {
+  border-radius: 999px;
+  border: 1px solid var(--pf-border);
+  background: var(--pf-surface-2);
+  color: var(--pf-text);
+}
+
+.pf-chip-active {
+  border-radius: 999px;
+  background: var(--pf-primary);
+  color: #04111a;
+}
+
+.pf-badge {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pf-primary) 20%, transparent);
+  background: var(--pf-primary-soft);
+  color: var(--pf-primary);
+}
+
+.pf-badge-danger {
+  border-radius: 999px;
+  background: var(--pf-danger);
+  color: white;
+}
+
+.pf-divider {
+  border-color: var(--pf-border);
+}
+
+.pf-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.pf-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--pf-primary) 22%, var(--pf-border));
+  border-radius: 999px;
+}
+
+.pf-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

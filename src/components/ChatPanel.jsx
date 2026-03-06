@@ -1,39 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   addDoc,
   collection,
+  doc,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
-  setDoc,
-  doc,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import Avatar from './Avatar';
+import { formatShortDateTime, getFallbackDisplayName } from '../utils/format';
 
-const formatMessageTime = (timestamp) => {
-  const date = timestamp?.toDate?.();
-
-  if (!date) {
-    return 'Jetzt';
-  }
-
-  return new Intl.DateTimeFormat('de-DE', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date);
-};
-
-export default function ChatPanel({
-  chat,
-  currentUser,
-  onToast,
-  profilesByUid,
-}) {
+export default function ChatPanel({ chat, currentUser, onToast, profilesByUid }) {
   const [messages, setMessages] = useState([]);
-  const [messageText, setMessageText] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [messageText, setMessageText] = useState('');
+  const bottomRef = useRef(null);
+
+  const otherUid = useMemo(
+    () => chat?.participantIds?.find((uid) => uid !== currentUser?.uid) || '',
+    [chat?.participantIds, currentUser?.uid],
+  );
+  const otherParticipant = otherUid ? profilesByUid[otherUid] : null;
 
   useEffect(() => {
     if (!chat?.id) {
@@ -51,17 +42,17 @@ export default function ChatPanel({
     const unsubscribe = onSnapshot(
       messagesQuery,
       (snapshot) => {
-        setMessages(
-          snapshot.docs.map((item) => ({
-            id: item.id,
-            ...item.data(),
-          })),
-        );
+        const nextMessages = snapshot.docs.map((item) => ({
+          id: item.id,
+          ...item.data(),
+        }));
+
+        setMessages(nextMessages);
         setLoading(false);
       },
       (error) => {
         console.error(error);
-        onToast('Chat-Nachrichten konnten nicht geladen werden.', 'error');
+        onToast('Nachrichten konnten nicht geladen werden.', 'error');
         setLoading(false);
       },
     );
@@ -69,47 +60,66 @@ export default function ChatPanel({
     return () => unsubscribe();
   }, [chat?.id, onToast]);
 
-  const otherUid = chat?.participantIds?.find((uid) => uid !== currentUser.uid);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  const otherParticipant = useMemo(() => {
-    return profilesByUid[otherUid] || null;
-  }, [otherUid, profilesByUid]);
+  useEffect(() => {
+    if (!chat?.id || !currentUser?.uid) {
+      return undefined;
+    }
+
+    if (!Array.isArray(chat.unreadBy) || !chat.unreadBy.includes(currentUser.uid)) {
+      return undefined;
+    }
+
+    updateDoc(doc(db, 'chats', chat.id), {
+      unreadBy: chat.unreadBy.filter((uid) => uid !== currentUser.uid),
+      [`lastReadAtByUid.${currentUser.uid}`]: serverTimestamp(),
+    }).catch((error) => {
+      console.error(error);
+    });
+
+    return undefined;
+  }, [chat?.id, chat?.unreadBy, currentUser?.uid]);
 
   const handleSendMessage = async (event) => {
     event.preventDefault();
 
-    if (!chat?.id) {
+    if (!chat?.id || !currentUser?.uid) {
       return;
     }
 
-    const trimmed = messageText.trim();
+    const text = messageText.trim();
 
-    if (!trimmed) {
+    if (!text) {
+      onToast('Bitte zuerst eine Nachricht eingeben.', 'error');
       return;
     }
 
     setSending(true);
 
     try {
+      const senderName =
+        profilesByUid[currentUser.uid]?.displayName ||
+        chat.participantNames?.[currentUser.uid] ||
+        getFallbackDisplayName(currentUser);
+
       await addDoc(collection(db, 'chats', chat.id, 'messages'), {
-        text: trimmed,
+        text,
         senderUid: currentUser.uid,
-        senderName:
-          profilesByUid[currentUser.uid]?.displayName ||
-          currentUser.displayName ||
-          currentUser.email ||
-          'Unbekannt',
+        senderName,
         createdAt: serverTimestamp(),
       });
 
-      await setDoc(
-        doc(db, 'chats', chat.id),
-        {
-          lastMessage: trimmed,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
+      await updateDoc(doc(db, 'chats', chat.id), {
+        lastMessage: text,
+        lastMessageSenderUid: currentUser.uid,
+        updatedAt: serverTimestamp(),
+        unreadBy: otherUid ? [otherUid] : [],
+        [`participantNames.${currentUser.uid}`]: senderName,
+        [`lastReadAtByUid.${currentUser.uid}`]: serverTimestamp(),
+      });
 
       setMessageText('');
     } catch (error) {
@@ -122,29 +132,38 @@ export default function ChatPanel({
 
   if (!chat) {
     return (
-      <div className="rounded-[2rem] border border-dashed border-white/15 bg-white/5 p-8 text-center text-slate-300">
+      <div className="rounded-[2rem] border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-8 text-center text-[var(--pf-muted)]">
         Wähle einen Chat aus oder starte einen neuen Kontakt aus einem Inserat.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl">
-      <div className="border-b border-white/10 px-5 py-4">
-        <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">In-App Chat</p>
-        <h3 className="mt-2 text-xl font-bold text-white">
-          {otherParticipant?.displayName || chat.participantNames?.[otherUid] || 'Kontakt'}
-        </h3>
-        <p className="mt-1 text-sm text-slate-300">
-          Bezug: <span className="font-medium text-white">{chat.partTitle || 'Inserat'}</span>
-        </p>
+    <div className="overflow-hidden rounded-[2rem] pf-card">
+      <div className="border-b pf-divider px-5 py-4">
+        <div className="flex items-center gap-3">
+          <Avatar
+            name={otherParticipant?.displayName || chat.participantNames?.[otherUid] || 'Kontakt'}
+            src={otherParticipant?.avatarBase64 || ''}
+            size="md"
+          />
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--pf-primary)]">In-App Chat</p>
+            <h3 className="mt-1 text-xl font-bold text-[var(--pf-text)]">
+              {otherParticipant?.displayName || chat.participantNames?.[otherUid] || 'Kontakt'}
+            </h3>
+            <p className="mt-1 text-sm text-[var(--pf-muted)]">
+              Bezug: <span className="font-medium text-[var(--pf-text)]">{chat.partTitle || 'Inserat'}</span>
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="max-h-[24rem] min-h-[24rem] space-y-3 overflow-y-auto px-5 py-4">
+      <div className="pf-scroll max-h-[24rem] min-h-[24rem] space-y-3 overflow-y-auto px-5 py-4">
         {loading ? (
-          <p className="text-sm text-slate-300">Nachrichten werden geladen…</p>
+          <p className="text-sm text-[var(--pf-muted)]">Nachrichten werden geladen…</p>
         ) : messages.length === 0 ? (
-          <p className="text-sm text-slate-300">Noch keine Nachrichten. Starte die Unterhaltung.</p>
+          <p className="text-sm text-[var(--pf-muted)]">Noch keine Nachrichten. Starte die Unterhaltung.</p>
         ) : (
           messages.map((message) => {
             const own = message.senderUid === currentUser.uid;
@@ -154,34 +173,35 @@ export default function ChatPanel({
                 key={message.id}
                 className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                   own
-                    ? 'ml-auto bg-cyan-400 text-slate-950'
-                    : 'border border-white/10 bg-slate-950/60 text-white'
+                    ? 'ml-auto bg-[var(--pf-primary)] text-[#04111a]'
+                    : 'border border-[color:var(--pf-border)] bg-[var(--pf-surface-3)] text-[var(--pf-text)]'
                 }`}
               >
                 <p className="text-sm font-semibold">{own ? 'Du' : message.senderName || 'Kontakt'}</p>
                 <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{message.text}</p>
-                <p className={`mt-2 text-xs ${own ? 'text-slate-800' : 'text-slate-400'}`}>
-                  {formatMessageTime(message.createdAt)}
+                <p className={`mt-2 text-xs ${own ? 'text-[#0f172a]' : 'text-[var(--pf-muted)]'}`}>
+                  {formatShortDateTime(message.createdAt)}
                 </p>
               </div>
             );
           })
         )}
+        <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={handleSendMessage} className="border-t border-white/10 px-5 py-4">
+      <form onSubmit={handleSendMessage} className="border-t pf-divider px-5 py-4">
         <div className="flex gap-3">
           <textarea
             rows="2"
             value={messageText}
             onChange={(event) => setMessageText(event.target.value)}
             placeholder="Nachricht schreiben …"
-            className="min-h-[3.25rem] flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/60"
+            className="pf-textarea min-h-[3.25rem] flex-1 px-4 py-3"
           />
           <button
             type="submit"
             disabled={sending}
-            className="rounded-2xl bg-cyan-400 px-5 py-3 font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            className="pf-button-primary px-5 py-3 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {sending ? 'Sende…' : 'Senden'}
           </button>

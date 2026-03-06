@@ -1,76 +1,67 @@
 import { useMemo, useState } from 'react';
 import AddPartForm from './AddPartForm';
+import Avatar from './Avatar';
 import PartDetailModal from './PartDetailModal';
+import ThemeSwitcher from './ThemeSwitcher';
+import { currencyFormatter, formatDateTime } from '../utils/format';
 
-const currencyFormatter = new Intl.NumberFormat('de-DE', {
-  style: 'currency',
-  currency: 'EUR',
-});
-
-const formatDate = (timestamp) => {
-  const date = timestamp?.toDate?.();
-
-  if (!date) {
-    return 'Gerade eben';
-  }
-
-  return new Intl.DateTimeFormat('de-DE', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
-};
-
-function PartCard({ part, sellerProfile, onOpenDetails }) {
+function PartCard({ part, sellerProfile, onOpenDetails, isOwn }) {
   const sellerName = sellerProfile?.displayName || part.sellerDisplayName || part.sellerEmail || 'Unbekannt';
 
   return (
     <button
       type="button"
       onClick={() => onOpenDetails(part)}
-      className="group overflow-hidden rounded-3xl border border-white/10 bg-white/5 text-left shadow-xl backdrop-blur-xl transition hover:-translate-y-1 hover:border-cyan-400/30"
+      className="group overflow-hidden rounded-[2rem] pf-card text-left transition hover:-translate-y-1"
     >
-      <div className="relative overflow-hidden border-b border-white/10 bg-slate-950/60">
+      <div className="relative overflow-hidden border-b pf-divider bg-black/10">
         <img
           src={part.imageBase64}
           alt={part.title}
           className="h-56 w-full object-cover transition duration-500 group-hover:scale-[1.02]"
         />
-        <span className="absolute left-4 top-4 rounded-full border border-white/15 bg-slate-950/80 px-3 py-1 text-xs font-semibold text-cyan-300 backdrop-blur">
-          {part.category}
-        </span>
+        <span className="absolute left-4 top-4 pf-badge px-3 py-1 text-xs font-semibold">{part.category}</span>
+        {isOwn ? (
+          <span className="absolute right-4 top-4 rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface)] px-3 py-1 text-xs font-semibold text-[var(--pf-text)]">
+            Dein Inserat
+          </span>
+        ) : null}
       </div>
 
       <div className="p-5">
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--pf-muted)]">
               {part.brand} • {part.model}
             </p>
-            <h3 className="mt-2 text-lg font-bold text-white">{part.title}</h3>
+            <h3 className="mt-2 text-lg font-bold text-[var(--pf-text)]">{part.title}</h3>
           </div>
-          <span className="rounded-2xl bg-cyan-400 px-3 py-2 text-sm font-black text-slate-950">
+          <span className="rounded-2xl bg-[var(--pf-primary)] px-3 py-2 text-sm font-black text-[#04111a]">
             {currencyFormatter.format(Number(part.price || 0))}
           </span>
         </div>
 
-        <p className="line-clamp-3 text-sm leading-6 text-slate-300">{part.description}</p>
+        <p className="line-clamp-3 text-sm leading-6 text-[var(--pf-muted)]">{part.description}</p>
 
-        <div className="mt-5 grid gap-2 text-sm text-slate-300">
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/45 px-3 py-2">
+        <div className="mt-5 grid gap-2 text-sm text-[var(--pf-muted)]">
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-3)] px-3 py-2">
             <span>Zustand</span>
-            <span className="font-medium text-white">{part.condition}</span>
+            <span className="font-medium text-[var(--pf-text)]">{part.condition}</span>
           </div>
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/45 px-3 py-2">
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-3)] px-3 py-2">
             <span>Verkäufer</span>
-            <span className="truncate font-medium text-white">{sellerName}</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <Avatar name={sellerName} src={sellerProfile?.avatarBase64 || ''} size="sm" />
+              <span className="truncate font-medium text-[var(--pf-text)]">{sellerName}</span>
+            </div>
           </div>
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/45 px-3 py-2">
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-3)] px-3 py-2">
             <span>Erstellt</span>
-            <span className="font-medium text-white">{formatDate(part.createdAt)}</span>
+            <span className="font-medium text-[var(--pf-text)]">{formatDateTime(part.createdAt)}</span>
           </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-100">
+        <div className="mt-5 rounded-2xl border border-[color:var(--pf-border)] bg-[var(--pf-primary-soft)] px-4 py-3 text-sm font-semibold text-[var(--pf-primary)]">
           Für Details antippen / anklicken
         </div>
       </div>
@@ -94,80 +85,82 @@ export default function Marketplace({
   profilesByUid,
   onOpenDashboard,
   onStartChat,
+  editingPart,
+  onCancelEdit,
+  onEditPart,
+  onDeletePart,
+  unreadChatsCount,
+  theme,
+  onThemeChange,
 }) {
   const [selectedPart, setSelectedPart] = useState(null);
 
-  const sellerCount = useMemo(() => {
-    return new Set(parts.map((part) => part.sellerUid)).size;
-  }, [parts]);
+  const sellerCount = useMemo(() => new Set(parts.map((part) => part.sellerUid)).size, [parts]);
 
   return (
     <>
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.14),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(96,165,250,0.16),_transparent_25%)]">
+      <div className="pf-page">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <header className="mb-8 rounded-[2rem] border border-white/10 bg-slate-900/70 p-6 shadow-2xl backdrop-blur-xl">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <header className="mb-8 rounded-[2rem] pf-glass p-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
+                <div className="pf-hero-badge px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em]">
                   Geschützt durch Firebase Auth
                 </div>
-                <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                <h1 className="mt-4 text-3xl font-black tracking-tight text-[var(--pf-text)] sm:text-4xl">
                   PartFinder 🚗
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                  Teil auswählen, Details öffnen, Verkäufer per WhatsApp oder In-App Chat kontaktieren und alles über dein Dashboard verwalten.
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--pf-muted)] sm:text-base">
+                  Inserate öffnen, Verkäufer kontaktieren, eigene Angebote verwalten und zwischen AMOLED Black und Smooth Light wechseln.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-                  Eingeloggt als{' '}
-                  <span className="font-semibold text-white">
-                    {profile?.displayName || user.displayName || user.email}
-                  </span>
+              <div className="flex w-full max-w-xl flex-col gap-3">
+                <div className="rounded-[1.5rem] pf-card-muted p-3">
+                  <ThemeSwitcher value={theme} onChange={onThemeChange} compact />
                 </div>
-                <button
-                  type="button"
-                  onClick={onOpenDashboard}
-                  className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
-                >
-                  Dashboard
-                </button>
-                <button
-                  type="button"
-                  onClick={onSignOut}
-                  className="rounded-2xl border border-white/10 bg-white px-4 py-3 font-semibold text-slate-900 transition hover:bg-slate-200"
-                >
-                  Logout
-                </button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                  <div className="rounded-2xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3 text-sm text-[var(--pf-muted)]">
+                    Eingeloggt als{' '}
+                    <span className="font-semibold text-[var(--pf-text)]">
+                      {profile?.displayName || user.displayName || user.email}
+                    </span>
+                  </div>
+                  <button type="button" onClick={onOpenDashboard} className="pf-button-ghost px-4 py-3">
+                    Dashboard {unreadChatsCount > 0 ? <span className="ml-2 pf-badge-danger px-2 py-0.5 text-xs">{unreadChatsCount}</span> : null}
+                  </button>
+                  <button type="button" onClick={onSignOut} className="pf-button-secondary px-4 py-3">
+                    Logout
+                  </button>
+                </div>
               </div>
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-4">
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm text-slate-400">Teile insgesamt</p>
-                <p className="mt-2 text-3xl font-black text-white">{totalParts}</p>
+              <div className="rounded-3xl pf-stat p-4">
+                <p className="text-sm text-[var(--pf-muted)]">Teile insgesamt</p>
+                <p className="mt-2 text-3xl font-black text-[var(--pf-text)]">{totalParts}</p>
               </div>
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm text-slate-400">Kategorien</p>
-                <p className="mt-2 text-3xl font-black text-white">{categories.length}</p>
+              <div className="rounded-3xl pf-stat p-4">
+                <p className="text-sm text-[var(--pf-muted)]">Kategorien</p>
+                <p className="mt-2 text-3xl font-black text-[var(--pf-text)]">{categories.length}</p>
               </div>
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm text-slate-400">Aktiver Filter</p>
-                <p className="mt-2 text-3xl font-black text-white">{selectedCategory}</p>
+              <div className="rounded-3xl pf-stat p-4">
+                <p className="text-sm text-[var(--pf-muted)]">Aktiver Filter</p>
+                <p className="mt-2 text-3xl font-black text-[var(--pf-text)]">{selectedCategory}</p>
               </div>
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm text-slate-400">Verkäufer sichtbar</p>
-                <p className="mt-2 text-3xl font-black text-white">{sellerCount}</p>
+              <div className="rounded-3xl pf-stat p-4">
+                <p className="text-sm text-[var(--pf-muted)]">Verkäufer sichtbar</p>
+                <p className="mt-2 text-3xl font-black text-[var(--pf-text)]">{sellerCount}</p>
               </div>
             </div>
           </header>
 
-          <section className="mb-6 rounded-[2rem] border border-white/10 bg-slate-900/60 p-5 shadow-2xl backdrop-blur-xl">
+          <section className="mb-6 rounded-[2rem] pf-card p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold text-white">Kategorien</h2>
-                <p className="text-sm text-slate-300">
+                <h2 className="text-lg font-bold text-[var(--pf-text)]">Kategorien</h2>
+                <p className="text-sm text-[var(--pf-muted)]">
                   {categoriesLoading ? 'Kategorien werden geladen…' : 'Klickbare Filter aus Firestore.'}
                 </p>
               </div>
@@ -177,11 +170,7 @@ export default function Marketplace({
               <button
                 type="button"
                 onClick={() => onSelectCategory('Alle')}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  selectedCategory === 'Alle'
-                    ? 'bg-cyan-400 text-slate-950'
-                    : 'border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
-                }`}
+                className={`${selectedCategory === 'Alle' ? 'pf-chip-active' : 'pf-chip'} px-4 py-2 text-sm font-semibold transition`}
               >
                 Alle
               </button>
@@ -191,11 +180,7 @@ export default function Marketplace({
                   key={category}
                   type="button"
                   onClick={() => onSelectCategory(category)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    selectedCategory === category
-                      ? 'bg-cyan-400 text-slate-950'
-                      : 'border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
-                  }`}
+                  className={`${selectedCategory === category ? 'pf-chip-active' : 'pf-chip'} px-4 py-2 text-sm font-semibold transition`}
                 >
                   {category}
                 </button>
@@ -205,19 +190,25 @@ export default function Marketplace({
 
           <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
             <aside>
-              <AddPartForm categories={categories} onSubmit={onAddPart} onToast={onToast} />
+              <AddPartForm
+                categories={categories}
+                onSubmit={onAddPart}
+                onToast={onToast}
+                editingPart={editingPart}
+                onCancelEdit={onCancelEdit}
+              />
             </aside>
 
             <section>
               {partsLoading ? (
-                <div className="rounded-[2rem] border border-white/10 bg-slate-900/60 p-8 text-center shadow-2xl backdrop-blur-xl">
-                  <div className="mx-auto mb-4 h-14 w-14 animate-pulse rounded-2xl bg-cyan-400/20" />
-                  <p className="text-lg font-semibold text-white">Teile werden geladen…</p>
+                <div className="rounded-[2rem] pf-card p-8 text-center">
+                  <div className="mx-auto mb-4 h-14 w-14 animate-pulse rounded-2xl bg-[var(--pf-primary-soft)]" />
+                  <p className="text-lg font-semibold text-[var(--pf-text)]">Teile werden geladen…</p>
                 </div>
               ) : parts.length === 0 ? (
-                <div className="rounded-[2rem] border border-dashed border-white/15 bg-slate-900/50 p-10 text-center shadow-2xl backdrop-blur-xl">
-                  <p className="text-lg font-semibold text-white">Noch keine Treffer in dieser Kategorie.</p>
-                  <p className="mt-2 text-sm text-slate-300">
+                <div className="rounded-[2rem] border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-10 text-center">
+                  <p className="text-lg font-semibold text-[var(--pf-text)]">Noch keine Treffer in dieser Kategorie.</p>
+                  <p className="mt-2 text-sm text-[var(--pf-muted)]">
                     Veröffentliche links das erste Teil oder wähle einen anderen Filter.
                   </p>
                 </div>
@@ -229,6 +220,7 @@ export default function Marketplace({
                       part={part}
                       sellerProfile={profilesByUid[part.sellerUid]}
                       onOpenDetails={setSelectedPart}
+                      isOwn={part.sellerUid === user.uid}
                     />
                   ))}
                 </div>
@@ -238,18 +230,21 @@ export default function Marketplace({
         </div>
       </div>
 
-      {selectedPart ? (
-        <PartDetailModal
-          part={selectedPart}
-          sellerProfile={profilesByUid[selectedPart.sellerUid]}
-          currentUser={user}
-          onClose={() => setSelectedPart(null)}
-          onStartChat={(part) => {
-            onStartChat(part);
-            setSelectedPart(null);
-          }}
-        />
-      ) : null}
+      <PartDetailModal
+        part={selectedPart}
+        sellerProfile={selectedPart ? profilesByUid[selectedPart.sellerUid] : null}
+        currentUser={user}
+        onClose={() => setSelectedPart(null)}
+        onStartChat={onStartChat}
+        onEditPart={(part) => {
+          onEditPart(part);
+          setSelectedPart(null);
+        }}
+        onDeletePart={async (part) => {
+          await onDeletePart(part);
+          setSelectedPart(null);
+        }}
+      />
     </>
   );
 }

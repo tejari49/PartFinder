@@ -10,12 +10,14 @@ import {
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
@@ -23,41 +25,7 @@ import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import Marketplace from './components/Marketplace';
 import Toast from './components/Toast';
-
-const normalizeCategoryName = (value = '') =>
-  value
-    .trim()
-    .replace(/\s+/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-
-const slugify = (value = '') =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/ß/g, 'ss')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-
-const getFallbackDisplayName = (user) => {
-  if (!user) {
-    return 'Nutzer';
-  }
-
-  if (user.displayName?.trim()) {
-    return user.displayName.trim();
-  }
-
-  if (user.email?.includes('@')) {
-    return user.email.split('@')[0];
-  }
-
-  return 'Nutzer';
-};
+import { getFallbackDisplayName, normalizeCategoryName, slugify } from './utils/format';
 
 const getChatIdForPart = (partId, firstUid, secondUid) => {
   const ids = [firstUid, secondUid].sort();
@@ -65,6 +33,7 @@ const getChatIdForPart = (partId, firstUid, secondUid) => {
 };
 
 export default function App() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('partfinder-theme') || 'amoled');
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [parts, setParts] = useState([]);
@@ -76,6 +45,7 @@ export default function App() {
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Alle');
   const [activeView, setActiveView] = useState('marketplace');
+  const [editingPartId, setEditingPartId] = useState('');
   const [toasts, setToasts] = useState([]);
 
   const pushToast = useCallback((message, type = 'info') => {
@@ -87,6 +57,11 @@ export default function App() {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 3600);
   }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('partfinder-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -106,6 +81,7 @@ export default function App() {
       setSelectedChatId('');
       setSelectedCategory('Alle');
       setActiveView('marketplace');
+      setEditingPartId('');
       setPartsLoading(false);
       setCategoriesLoading(false);
       return undefined;
@@ -129,7 +105,7 @@ export default function App() {
     });
 
     return undefined;
-  }, [user, pushToast]);
+  }, [user, pushToast, theme]);
 
   useEffect(() => {
     if (!user) {
@@ -245,6 +221,17 @@ export default function App() {
 
   const userProfile = profilesByUid[user?.uid] || null;
 
+  useEffect(() => {
+    if (userProfile?.themePreference && userProfile.themePreference !== theme) {
+      setTheme(userProfile.themePreference);
+    }
+  }, [theme, userProfile?.themePreference]);
+
+  const editingPart = useMemo(
+    () => parts.find((part) => part.id === editingPartId) || null,
+    [parts, editingPartId],
+  );
+
   const filteredParts = useMemo(() => {
     if (selectedCategory === 'Alle') {
       return parts;
@@ -254,7 +241,17 @@ export default function App() {
     return parts.filter((part) => part.categorySlug === activeSlug);
   }, [parts, selectedCategory]);
 
-  const handleAddPart = async (payload) => {
+  const myParts = useMemo(
+    () => parts.filter((part) => part.sellerUid === user?.uid),
+    [parts, user?.uid],
+  );
+
+  const unreadChatsCount = useMemo(
+    () => chats.filter((chat) => Array.isArray(chat.unreadBy) && chat.unreadBy.includes(user?.uid)).length,
+    [chats, user?.uid],
+  );
+
+  const handleUpsertPart = async (payload, existingPart = null) => {
     if (!user) {
       pushToast('Bitte zuerst anmelden.', 'error');
       return;
@@ -279,7 +276,7 @@ export default function App() {
         { merge: true },
       );
 
-      await addDoc(collection(db, 'parts'), {
+      const commonFields = {
         category: normalizedCategory,
         categorySlug,
         brand: payload.brand.trim(),
@@ -292,10 +289,20 @@ export default function App() {
         sellerUid: user.uid,
         sellerEmail: user.email || '',
         sellerDisplayName: userProfile?.displayName || getFallbackDisplayName(user),
-        createdAt: serverTimestamp(),
-      });
+        updatedAt: serverTimestamp(),
+      };
 
-      pushToast('Autoteil wurde erfolgreich veröffentlicht.', 'success');
+      if (existingPart?.id) {
+        await updateDoc(doc(db, 'parts', existingPart.id), commonFields);
+        setEditingPartId('');
+        pushToast('Inserat wurde aktualisiert.', 'success');
+      } else {
+        await addDoc(collection(db, 'parts'), {
+          ...commonFields,
+          createdAt: serverTimestamp(),
+        });
+        pushToast('Autoteil wurde erfolgreich veröffentlicht.', 'success');
+      }
     } catch (error) {
       console.error(error);
       pushToast('Speichern fehlgeschlagen. Prüfe Firestore-Regeln und Indexe.', 'error');
@@ -303,7 +310,47 @@ export default function App() {
     }
   };
 
-  const handleSaveProfile = async ({ displayName, whatsappNumber, chatEnabled }) => {
+  const handleEditPart = (part) => {
+    if (!user || part.sellerUid !== user.uid) {
+      pushToast('Nur eigene Inserate können bearbeitet werden.', 'error');
+      return;
+    }
+
+    setEditingPartId(part.id);
+    setActiveView('marketplace');
+    pushToast('Inserat im Bearbeitungsmodus geöffnet.', 'info');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPartId('');
+  };
+
+  const handleDeletePart = async (part) => {
+    if (!user || part.sellerUid !== user.uid) {
+      pushToast('Nur eigene Inserate können gelöscht werden.', 'error');
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'parts', part.id));
+      if (editingPartId === part.id) {
+        setEditingPartId('');
+      }
+      pushToast('Inserat wurde gelöscht.', 'success');
+    } catch (error) {
+      console.error(error);
+      pushToast('Inserat konnte nicht gelöscht werden.', 'error');
+      throw error;
+    }
+  };
+
+  const handleSaveProfile = async ({
+    displayName,
+    whatsappNumber,
+    chatEnabled,
+    avatarBase64,
+    themePreference,
+  }) => {
     if (!user) {
       return;
     }
@@ -327,11 +374,14 @@ export default function App() {
           displayName: trimmedName,
           whatsappNumber: whatsappNumber.trim(),
           chatEnabled: Boolean(chatEnabled),
+          avatarBase64: avatarBase64 || '',
+          themePreference: themePreference || theme,
           updatedAt: serverTimestamp(),
         },
         { merge: true },
       );
 
+      setTheme(themePreference || theme);
       pushToast('Profil wurde aktualisiert.', 'success');
     } catch (error) {
       console.error(error);
@@ -377,9 +427,15 @@ export default function App() {
       return;
     }
 
+    const sellerProfile = profilesByUid[part.sellerUid];
+
+    if (sellerProfile?.chatEnabled === false) {
+      pushToast('Der Verkäufer hat den In-App Chat deaktiviert.', 'error');
+      return;
+    }
+
     const chatId = getChatIdForPart(part.id, user.uid, part.sellerUid);
     const buyerName = userProfile?.displayName || getFallbackDisplayName(user);
-    const sellerProfile = profilesByUid[part.sellerUid];
     const sellerName = sellerProfile?.displayName || part.sellerDisplayName || part.sellerEmail || 'Verkäufer';
 
     try {
@@ -399,6 +455,7 @@ export default function App() {
           updatedAt: serverTimestamp(),
           createdAt: serverTimestamp(),
           lastMessage: '',
+          unreadBy: [],
         },
         { merge: true },
       );
@@ -423,13 +480,13 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="pf-page">
       {authLoading ? (
         <div className="flex min-h-screen items-center justify-center px-6">
-          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 text-center shadow-2xl backdrop-blur-xl">
-            <div className="mx-auto mb-4 h-14 w-14 animate-pulse rounded-2xl bg-cyan-400/20" />
-            <p className="text-lg font-semibold text-white">Autoteile-Marktplatz lädt…</p>
-            <p className="mt-2 text-sm text-slate-300">Auth-Status wird geprüft.</p>
+          <div className="w-full max-w-md rounded-3xl pf-card p-8 text-center">
+            <div className="mx-auto mb-4 h-14 w-14 animate-pulse rounded-2xl bg-[var(--pf-primary-soft)]" />
+            <p className="text-lg font-semibold text-[var(--pf-text)]">Autoteile-Marktplatz lädt…</p>
+            <p className="mt-2 text-sm text-[var(--pf-muted)]">Auth-Status wird geprüft.</p>
           </div>
         </div>
       ) : user ? (
@@ -445,6 +502,15 @@ export default function App() {
             onOpenMarketplace={() => setActiveView('marketplace')}
             onToast={pushToast}
             profilesByUid={profilesByUid}
+            myParts={myParts}
+            onEditPart={(part) => {
+              handleEditPart(part);
+              setActiveView('marketplace');
+            }}
+            onDeletePart={handleDeletePart}
+            unreadChatsCount={unreadChatsCount}
+            theme={theme}
+            onThemeChange={setTheme}
           />
         ) : (
           <Marketplace
@@ -455,7 +521,7 @@ export default function App() {
             categories={categories}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
-            onAddPart={handleAddPart}
+            onAddPart={handleUpsertPart}
             onSignOut={handleSignOut}
             partsLoading={partsLoading}
             categoriesLoading={categoriesLoading}
@@ -463,10 +529,17 @@ export default function App() {
             profilesByUid={profilesByUid}
             onOpenDashboard={() => setActiveView('dashboard')}
             onStartChat={handleStartChat}
+            editingPart={editingPart}
+            onCancelEdit={handleCancelEdit}
+            onEditPart={handleEditPart}
+            onDeletePart={handleDeletePart}
+            unreadChatsCount={unreadChatsCount}
+            theme={theme}
+            onThemeChange={setTheme}
           />
         )
       ) : (
-        <Auth onToast={pushToast} />
+        <Auth onToast={pushToast} theme={theme} onThemeChange={setTheme} />
       )}
 
       <Toast toasts={toasts} />

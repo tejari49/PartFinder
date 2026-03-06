@@ -1,7 +1,16 @@
 const toastStyles = {
-  success: 'border-emerald-400/30 bg-emerald-500/15 text-emerald-100',
-  error: 'border-rose-400/30 bg-rose-500/15 text-rose-100',
-  info: 'border-cyan-400/30 bg-cyan-500/15 text-cyan-100',
+  success: {
+    borderColor: 'color-mix(in srgb, var(--pf-success) 35%, transparent)',
+    background: 'color-mix(in srgb, var(--pf-success) 12%, var(--pf-surface))',
+  },
+  error: {
+    borderColor: 'color-mix(in srgb, var(--pf-danger) 35%, transparent)',
+    background: 'color-mix(in srgb, var(--pf-danger) 12%, var(--pf-surface))',
+  },
+  info: {
+    borderColor: 'color-mix(in srgb, var(--pf-primary) 35%, transparent)',
+    background: 'color-mix(in srgb, var(--pf-primary) 12%, var(--pf-surface))',
+  },
 };
 
 export default function Toast({ toasts }) {
@@ -10,9 +19,8 @@ export default function Toast({ toasts }) {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-xl ${
-            toastStyles[toast.type] || toastStyles.info
-          }`}
+          style={toastStyles[toast.type] || toastStyles.info}
+          className="rounded-2xl border px-4 py-3 text-[var(--pf-text)] shadow-2xl backdrop-blur-xl"
         >
           <p className="text-sm font-semibold">{toast.message}</p>
         </div>

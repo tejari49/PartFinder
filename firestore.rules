@@ -9,19 +9,27 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    function isStringField(data, field) {
-      return data[field] is string;
+    function isString(data, field) {
+      return !(field in data) || data[field] is string;
     }
 
     match /categories/{categoryId} {
       allow read: if signedIn();
-      allow create, update: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.name is string
+        && request.resource.data.slug is string;
       allow delete: if false;
     }
 
     match /users/{userId} {
       allow read: if signedIn();
-      allow create, update: if isSelf(userId);
+      allow create, update: if isSelf(userId)
+        && isString(request.resource.data, 'displayName')
+        && isString(request.resource.data, 'email')
+        && isString(request.resource.data, 'whatsappNumber')
+        && isString(request.resource.data, 'avatarBase64')
+        && isString(request.resource.data, 'themePreference')
+        && (!("chatEnabled" in request.resource.data) || request.resource.data.chatEnabled is bool);
       allow delete: if false;
     }
 
@@ -29,18 +37,32 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.sellerUid == request.auth.uid
-        && isStringField(request.resource.data, 'category')
-        && isStringField(request.resource.data, 'categorySlug')
-        && isStringField(request.resource.data, 'brand')
-        && isStringField(request.resource.data, 'model')
-        && isStringField(request.resource.data, 'title')
-        && isStringField(request.resource.data, 'description')
-        && isStringField(request.resource.data, 'condition')
-        && isStringField(request.resource.data, 'imageBase64')
-        && isStringField(request.resource.data, 'sellerEmail')
-        && isStringField(request.resource.data, 'sellerDisplayName')
+        && request.resource.data.category is string
+        && request.resource.data.categorySlug is string
+        && request.resource.data.brand is string
+        && request.resource.data.model is string
+        && request.resource.data.title is string
+        && request.resource.data.description is string
+        && request.resource.data.condition is string
+        && request.resource.data.imageBase64 is string
+        && request.resource.data.sellerEmail is string
+        && request.resource.data.sellerDisplayName is string
         && request.resource.data.price is number;
-      allow update, delete: if signedIn() && resource.data.sellerUid == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.sellerUid == request.auth.uid
+        && request.resource.data.sellerUid == request.auth.uid
+        && request.resource.data.category is string
+        && request.resource.data.categorySlug is string
+        && request.resource.data.brand is string
+        && request.resource.data.model is string
+        && request.resource.data.title is string
+        && request.resource.data.description is string
+        && request.resource.data.condition is string
+        && request.resource.data.imageBase64 is string
+        && request.resource.data.sellerEmail is string
+        && request.resource.data.sellerDisplayName is string
+        && request.resource.data.price is number;
+      allow delete: if signedIn() && resource.data.sellerUid == request.auth.uid;
     }
 
     match /chats/{chatId} {
@@ -50,18 +72,19 @@ service cloud.firestore {
         && request.resource.data.participantIds.size() == 2
         && request.resource.data.sellerUid in request.resource.data.participantIds
         && request.resource.data.buyerUid in request.resource.data.participantIds
-        && isStringField(request.resource.data, 'partId')
-        && isStringField(request.resource.data, 'partTitle');
+        && request.resource.data.partId is string
+        && request.resource.data.partTitle is string;
       allow update: if signedIn() && request.auth.uid in resource.data.participantIds;
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+        allow read: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
         allow create: if signedIn()
           && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds
           && request.resource.data.senderUid == request.auth.uid
-          && isStringField(request.resource.data, 'text')
-          && isStringField(request.resource.data, 'senderName');
+          && request.resource.data.text is string
+          && request.resource.data.senderName is string;
         allow update, delete: if false;
       }
     }

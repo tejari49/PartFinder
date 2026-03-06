@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { resizeImageToBase64 } from '../utils/image';
 
 const initialState = {
   category: '',
@@ -6,60 +7,45 @@ const initialState = {
   model: '',
   title: '',
   price: '',
-  condition: 'Gebraucht - gut',
+  condition: 'Gebraucht',
   description: '',
   imageBase64: '',
   imageName: '',
 };
 
-const conditions = [
-  'Neu',
-  'Wie neu',
-  'Gebraucht - sehr gut',
-  'Gebraucht - gut',
-  'Gebraucht - akzeptabel',
-  'Defekt / Bastlerware',
-];
+const conditions = ['Neu', 'Neuwertig', 'Gebraucht', 'Defekt / Bastler', 'Generalüberholt'];
 
-const resizeImageToBase64 = (file, maxWidth = 800, quality = 0.7) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const image = new Image();
-
-      image.onload = () => {
-        const ratio = image.width > maxWidth ? maxWidth / image.width : 1;
-        const canvas = document.createElement('canvas');
-        const width = Math.round(image.width * ratio);
-        const height = Math.round(image.height * ratio);
-        const context = canvas.getContext('2d');
-
-        canvas.width = width;
-        canvas.height = height;
-
-        if (!context) {
-          reject(new Error('Canvas-Kontext konnte nicht erstellt werden.'));
-          return;
-        }
-
-        context.drawImage(image, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-
-      image.onerror = () => reject(new Error('Bild konnte nicht geladen werden.'));
-      image.src = reader.result;
-    };
-
-    reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
-    reader.readAsDataURL(file);
-  });
-
-export default function AddPartForm({ categories, onSubmit, onToast }) {
+export default function AddPartForm({ categories, onSubmit, onToast, editingPart, onCancelEdit }) {
   const [form, setForm] = useState(initialState);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!editingPart) {
+      setForm(initialState);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    setForm({
+      category: editingPart.category || '',
+      brand: editingPart.brand || '',
+      model: editingPart.model || '',
+      title: editingPart.title || '',
+      price: editingPart.price ?? '',
+      condition: editingPart.condition || 'Gebraucht',
+      description: editingPart.description || '',
+      imageBase64: editingPart.imageBase64 || '',
+      imageName: editingPart.title || 'Vorhandenes Bild',
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [editingPart]);
 
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -80,7 +66,12 @@ export default function AddPartForm({ categories, onSubmit, onToast }) {
     setIsProcessingImage(true);
 
     try {
-      const imageBase64 = await resizeImageToBase64(file);
+      const imageBase64 = await resizeImageToBase64(file, {
+        maxWidth: 800,
+        maxHeight: 800,
+        quality: 0.7,
+      });
+
       setForm((prev) => ({
         ...prev,
         imageBase64,
@@ -95,6 +86,13 @@ export default function AddPartForm({ categories, onSubmit, onToast }) {
     }
   };
 
+  const resetForm = () => {
+    setForm(initialState);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -106,11 +104,11 @@ export default function AddPartForm({ categories, onSubmit, onToast }) {
     setIsSubmitting(true);
 
     try {
-      await onSubmit(form);
-      setForm(initialState);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      await onSubmit(form, editingPart || null);
+      if (editingPart) {
+        onCancelEdit();
       }
+      resetForm();
     } catch (error) {
       console.error(error);
     } finally {
@@ -119,52 +117,54 @@ export default function AddPartForm({ categories, onSubmit, onToast }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl">
+    <form onSubmit={handleSubmit} className="rounded-[2rem] pf-card p-5">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-white">Teil anbieten</h2>
-          <p className="mt-1 text-sm text-slate-300">Neue Kategorien werden automatisch gespeichert.</p>
+          <h2 className="text-xl font-bold text-[var(--pf-text)]">
+            {editingPart ? 'Inserat bearbeiten' : 'Teil anbieten'}
+          </h2>
+          <p className="mt-1 text-sm text-[var(--pf-muted)]">
+            {editingPart
+              ? 'Ändere Text, Preis oder Bild und speichere das Inserat neu.'
+              : 'Neue Kategorien werden automatisch gespeichert.'}
+          </p>
         </div>
-        <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-300">
-          Verkäufer-Formular
+        <span className="pf-badge px-3 py-1 text-xs font-semibold">
+          {editingPart ? 'Edit-Modus' : 'Verkäufer-Formular'}
         </span>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block md:col-span-2">
-          <span className="mb-2 block text-sm font-medium text-slate-200">Originalfoto *</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Originalfoto *</span>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
             onChange={handleImageChange}
-            className="w-full rounded-2xl border border-dashed border-white/15 bg-slate-950/70 px-4 py-3 text-sm text-slate-300 file:mr-4 file:rounded-xl file:border-0 file:bg-cyan-400 file:px-4 file:py-2 file:font-semibold file:text-slate-950 hover:file:bg-cyan-300"
-            required
+            className="w-full rounded-2xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-3)] px-4 py-3 text-sm text-[var(--pf-muted)] file:mr-4 file:rounded-xl file:border-0 file:bg-[var(--pf-primary)] file:px-4 file:py-2 file:font-semibold file:text-[#04111a]"
+            required={!form.imageBase64}
           />
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-[var(--pf-muted)]">
             Upload wird clientseitig via Canvas auf max. 800px Breite und JPEG Qualität 0.7 komprimiert.
           </p>
         </label>
 
-        {form.imageBase64 && (
-          <div className="md:col-span-2 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 p-3">
-            <img
-              src={form.imageBase64}
-              alt="Vorschau"
-              className="h-56 w-full rounded-2xl object-cover"
-            />
-            <p className="mt-3 truncate text-sm text-slate-300">{form.imageName}</p>
+        {form.imageBase64 ? (
+          <div className="md:col-span-2 overflow-hidden rounded-2xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-3)] p-3">
+            <img src={form.imageBase64} alt="Vorschau" className="h-56 w-full rounded-2xl object-cover" />
+            <p className="mt-3 truncate text-sm text-[var(--pf-muted)]">{form.imageName}</p>
           </div>
-        )}
+        ) : null}
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-200">Kategorie *</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Kategorie *</span>
           <input
             list="category-options"
             value={form.category}
             onChange={(event) => updateField('category', event.target.value)}
             placeholder="z. B. Turbolader"
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/60"
+            className="pf-input px-4 py-3"
             required
           />
           <datalist id="category-options">
@@ -175,43 +175,43 @@ export default function AddPartForm({ categories, onSubmit, onToast }) {
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-200">Marke *</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Marke *</span>
           <input
             type="text"
             value={form.brand}
             onChange={(event) => updateField('brand', event.target.value)}
             placeholder="BMW, Audi, VW …"
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/60"
+            className="pf-input px-4 py-3"
             required
           />
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-200">Modell *</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Modell *</span>
           <input
             type="text"
             value={form.model}
             onChange={(event) => updateField('model', event.target.value)}
             placeholder="A4 B8, Golf 7 …"
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/60"
+            className="pf-input px-4 py-3"
             required
           />
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-200">Titel *</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Titel *</span>
           <input
             type="text"
             value={form.title}
             onChange={(event) => updateField('title', event.target.value)}
             placeholder="Original Stoßstange vorne"
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/60"
+            className="pf-input px-4 py-3"
             required
           />
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-200">Preis in € *</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Preis in € *</span>
           <input
             type="number"
             min="0"
@@ -219,17 +219,17 @@ export default function AddPartForm({ categories, onSubmit, onToast }) {
             value={form.price}
             onChange={(event) => updateField('price', event.target.value)}
             placeholder="149.99"
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/60"
+            className="pf-input px-4 py-3"
             required
           />
         </label>
 
         <label className="block md:col-span-2">
-          <span className="mb-2 block text-sm font-medium text-slate-200">Zustand *</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Zustand *</span>
           <select
             value={form.condition}
             onChange={(event) => updateField('condition', event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition focus:border-cyan-400/60"
+            className="pf-select px-4 py-3"
             required
           >
             {conditions.map((condition) => (
@@ -241,29 +241,41 @@ export default function AddPartForm({ categories, onSubmit, onToast }) {
         </label>
 
         <label className="block md:col-span-2">
-          <span className="mb-2 block text-sm font-medium text-slate-200">Beschreibung *</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Beschreibung *</span>
           <textarea
             rows="5"
             value={form.description}
             onChange={(event) => updateField('description', event.target.value)}
             placeholder="Details, Zustand, Teilenummer, Versand, Abholung …"
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/60"
+            className="pf-textarea px-4 py-3"
             required
           />
         </label>
       </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting || isProcessingImage}
-        className="mt-5 w-full rounded-2xl bg-cyan-400 px-4 py-3 font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isProcessingImage
-          ? 'Bild wird verarbeitet…'
-          : isSubmitting
-            ? 'Wird gespeichert…'
-            : 'Teil veröffentlichen'}
-      </button>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button
+          type="submit"
+          disabled={isSubmitting || isProcessingImage}
+          className="pf-button-primary flex-1 px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isProcessingImage
+            ? 'Bild wird verarbeitet…'
+            : isSubmitting
+              ? editingPart
+                ? 'Wird aktualisiert…'
+                : 'Wird gespeichert…'
+              : editingPart
+                ? 'Inserat aktualisieren'
+                : 'Teil veröffentlichen'}
+        </button>
+
+        {editingPart ? (
+          <button type="button" onClick={onCancelEdit} className="pf-button-secondary px-4 py-3">
+            Bearbeiten abbrechen
+          </button>
+        ) : null}
+      </div>
     </form>
   );
 }
