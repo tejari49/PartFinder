@@ -1,4 +1,6 @@
+import { useMemo, useState } from 'react';
 import AddPartForm from './AddPartForm';
+import PartDetailModal from './PartDetailModal';
 
 const currencyFormatter = new Intl.NumberFormat('de-DE', {
   style: 'currency',
@@ -18,9 +20,15 @@ const formatDate = (timestamp) => {
   }).format(date);
 };
 
-function PartCard({ part }) {
+function PartCard({ part, sellerProfile, onOpenDetails }) {
+  const sellerName = sellerProfile?.displayName || part.sellerDisplayName || part.sellerEmail || 'Unbekannt';
+
   return (
-    <article className="group overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-xl backdrop-blur-xl transition hover:-translate-y-1 hover:border-cyan-400/30">
+    <button
+      type="button"
+      onClick={() => onOpenDetails(part)}
+      className="group overflow-hidden rounded-3xl border border-white/10 bg-white/5 text-left shadow-xl backdrop-blur-xl transition hover:-translate-y-1 hover:border-cyan-400/30"
+    >
       <div className="relative overflow-hidden border-b border-white/10 bg-slate-950/60">
         <img
           src={part.imageBase64}
@@ -54,20 +62,25 @@ function PartCard({ part }) {
           </div>
           <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/45 px-3 py-2">
             <span>Verkäufer</span>
-            <span className="truncate font-medium text-white">{part.sellerEmail || 'Unbekannt'}</span>
+            <span className="truncate font-medium text-white">{sellerName}</span>
           </div>
           <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/45 px-3 py-2">
             <span>Erstellt</span>
             <span className="font-medium text-white">{formatDate(part.createdAt)}</span>
           </div>
         </div>
+
+        <div className="mt-5 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-100">
+          Für Details antippen / anklicken
+        </div>
       </div>
-    </article>
+    </button>
   );
 }
 
 export default function Marketplace({
   user,
+  profile,
   parts,
   totalParts,
   categories,
@@ -78,122 +91,165 @@ export default function Marketplace({
   partsLoading,
   categoriesLoading,
   onToast,
+  profilesByUid,
+  onOpenDashboard,
+  onStartChat,
 }) {
+  const [selectedPart, setSelectedPart] = useState(null);
+
+  const sellerCount = useMemo(() => {
+    return new Set(parts.map((part) => part.sellerUid)).size;
+  }, [parts]);
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.14),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(96,165,250,0.16),_transparent_25%)]">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <header className="mb-8 rounded-[2rem] border border-white/10 bg-slate-900/70 p-6 shadow-2xl backdrop-blur-xl">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
-                Geschützt durch Firebase Auth
+    <>
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.14),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(96,165,250,0.16),_transparent_25%)]">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <header className="mb-8 rounded-[2rem] border border-white/10 bg-slate-900/70 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
+                  Geschützt durch Firebase Auth
+                </div>
+                <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                  PartFinder 🚗
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+                  Teil auswählen, Details öffnen, Verkäufer per WhatsApp oder In-App Chat kontaktieren und alles über dein Dashboard verwalten.
+                </p>
               </div>
-              <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
-                PartFinder 🚗
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                Moderner Autoteile-Marktplatz mit dynamischen Kategorien, Firestore Sync und clientseitiger Bildkompression.
-              </p>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+                  Eingeloggt als{' '}
+                  <span className="font-semibold text-white">
+                    {profile?.displayName || user.displayName || user.email}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenDashboard}
+                  className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
+                >
+                  Dashboard
+                </button>
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="rounded-2xl border border-white/10 bg-white px-4 py-3 font-semibold text-slate-900 transition hover:bg-slate-200"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-                Eingeloggt als <span className="font-semibold text-white">{user.email}</span>
+            <div className="mt-6 grid gap-4 md:grid-cols-4">
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                <p className="text-sm text-slate-400">Teile insgesamt</p>
+                <p className="mt-2 text-3xl font-black text-white">{totalParts}</p>
               </div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                <p className="text-sm text-slate-400">Kategorien</p>
+                <p className="mt-2 text-3xl font-black text-white">{categories.length}</p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                <p className="text-sm text-slate-400">Aktiver Filter</p>
+                <p className="mt-2 text-3xl font-black text-white">{selectedCategory}</p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                <p className="text-sm text-slate-400">Verkäufer sichtbar</p>
+                <p className="mt-2 text-3xl font-black text-white">{sellerCount}</p>
+              </div>
+            </div>
+          </header>
+
+          <section className="mb-6 rounded-[2rem] border border-white/10 bg-slate-900/60 p-5 shadow-2xl backdrop-blur-xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-white">Kategorien</h2>
+                <p className="text-sm text-slate-300">
+                  {categoriesLoading ? 'Kategorien werden geladen…' : 'Klickbare Filter aus Firestore.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={onSignOut}
-                className="rounded-2xl border border-white/10 bg-white px-4 py-3 font-semibold text-slate-900 transition hover:bg-slate-200"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-              <p className="text-sm text-slate-400">Teile insgesamt</p>
-              <p className="mt-2 text-3xl font-black text-white">{totalParts}</p>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-              <p className="text-sm text-slate-400">Kategorien</p>
-              <p className="mt-2 text-3xl font-black text-white">{categories.length}</p>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-              <p className="text-sm text-slate-400">Aktiver Filter</p>
-              <p className="mt-2 text-3xl font-black text-white">{selectedCategory}</p>
-            </div>
-          </div>
-        </header>
-
-        <section className="mb-6 rounded-[2rem] border border-white/10 bg-slate-900/60 p-5 shadow-2xl backdrop-blur-xl">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-white">Kategorien</h2>
-              <p className="text-sm text-slate-300">
-                {categoriesLoading ? 'Kategorien werden geladen…' : 'Klickbare Filter aus Firestore.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => onSelectCategory('Alle')}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                selectedCategory === 'Alle'
-                  ? 'bg-cyan-400 text-slate-950'
-                  : 'border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
-              }`}
-            >
-              Alle
-            </button>
-
-            {categories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                onClick={() => onSelectCategory(category)}
+                onClick={() => onSelectCategory('Alle')}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  selectedCategory === category
+                  selectedCategory === 'Alle'
                     ? 'bg-cyan-400 text-slate-950'
                     : 'border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
                 }`}
               >
-                {category}
+                Alle
               </button>
-            ))}
-          </div>
-        </section>
 
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <aside>
-            <AddPartForm categories={categories} onSubmit={onAddPart} onToast={onToast} />
-          </aside>
-
-          <section>
-            {partsLoading ? (
-              <div className="rounded-[2rem] border border-white/10 bg-slate-900/60 p-8 text-center shadow-2xl backdrop-blur-xl">
-                <div className="mx-auto mb-4 h-14 w-14 animate-pulse rounded-2xl bg-cyan-400/20" />
-                <p className="text-lg font-semibold text-white">Teile werden geladen…</p>
-              </div>
-            ) : parts.length === 0 ? (
-              <div className="rounded-[2rem] border border-dashed border-white/15 bg-slate-900/50 p-10 text-center shadow-2xl backdrop-blur-xl">
-                <p className="text-lg font-semibold text-white">Noch keine Treffer in dieser Kategorie.</p>
-                <p className="mt-2 text-sm text-slate-300">
-                  Veröffentliche links das erste Teil oder wähle einen anderen Filter.
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
-                {parts.map((part) => (
-                  <PartCard key={part.id} part={part} />
-                ))}
-              </div>
-            )}
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => onSelectCategory(category)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    selectedCategory === category
+                      ? 'bg-cyan-400 text-slate-950'
+                      : 'border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
           </section>
+
+          <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+            <aside>
+              <AddPartForm categories={categories} onSubmit={onAddPart} onToast={onToast} />
+            </aside>
+
+            <section>
+              {partsLoading ? (
+                <div className="rounded-[2rem] border border-white/10 bg-slate-900/60 p-8 text-center shadow-2xl backdrop-blur-xl">
+                  <div className="mx-auto mb-4 h-14 w-14 animate-pulse rounded-2xl bg-cyan-400/20" />
+                  <p className="text-lg font-semibold text-white">Teile werden geladen…</p>
+                </div>
+              ) : parts.length === 0 ? (
+                <div className="rounded-[2rem] border border-dashed border-white/15 bg-slate-900/50 p-10 text-center shadow-2xl backdrop-blur-xl">
+                  <p className="text-lg font-semibold text-white">Noch keine Treffer in dieser Kategorie.</p>
+                  <p className="mt-2 text-sm text-slate-300">
+                    Veröffentliche links das erste Teil oder wähle einen anderen Filter.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
+                  {parts.map((part) => (
+                    <PartCard
+                      key={part.id}
+                      part={part}
+                      sellerProfile={profilesByUid[part.sellerUid]}
+                      onOpenDetails={setSelectedPart}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
         </div>
       </div>
-    </div>
+
+      {selectedPart ? (
+        <PartDetailModal
+          part={selectedPart}
+          sellerProfile={profilesByUid[selectedPart.sellerUid]}
+          currentUser={user}
+          onClose={() => setSelectedPart(null)}
+          onStartChat={(part) => {
+            onStartChat(part);
+            setSelectedPart(null);
+          }}
+        />
+      ) : null}
+    </>
   );
 }

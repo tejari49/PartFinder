@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  updateProfile,
 } from 'firebase/auth';
 import { auth } from '../firebase';
 
@@ -12,10 +13,12 @@ const authErrorMap = {
   'auth/weak-password': 'Das Passwort muss mindestens 6 Zeichen lang sein.',
   'auth/missing-password': 'Bitte ein Passwort eingeben.',
   'auth/too-many-requests': 'Zu viele Versuche. Bitte später erneut probieren.',
+  'auth/operation-not-allowed': 'E-Mail/Passwort-Anmeldung ist in Firebase noch nicht aktiviert.',
 };
 
 export default function Auth({ onToast }) {
   const [mode, setMode] = useState('login');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +29,14 @@ export default function Auth({ onToast }) {
 
     try {
       if (mode === 'register') {
-        await createUserWithEmailAndPassword(auth, email.trim(), password);
+        const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+
+        if (name.trim()) {
+          await updateProfile(credential.user, {
+            displayName: name.trim(),
+          });
+        }
+
         onToast('Konto erstellt. Du bist jetzt eingeloggt.', 'success');
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -51,7 +61,7 @@ export default function Auth({ onToast }) {
           </span>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-white">PartFinder 🚗</h1>
           <p className="mt-2 text-sm text-slate-300">
-            Nur eingeloggte Nutzer sehen den Marktplatz und können Autoteile anbieten.
+            Nur eingeloggte Nutzer sehen den Marktplatz, Kontaktdaten und In-App Chats.
           </p>
         </div>
 
@@ -81,6 +91,20 @@ export default function Auth({ onToast }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === 'register' ? (
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-200">Name</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Dein Anzeigename"
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/60"
+                required
+              />
+            </label>
+          ) : null}
+
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-200">E-Mail</span>
             <input
