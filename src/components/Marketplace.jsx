@@ -4,11 +4,13 @@ import PartDetailModal from './PartDetailModal';
 import ThemeSwitcher from './ThemeSwitcher';
 import { currencyFormatter } from '../utils/format';
 
-function SmallStat({ label, value }) {
+function CompactStat({ label, value }) {
   return (
-    <div className="rounded-[1.15rem] pf-stat px-4 py-3">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--pf-muted)]">{label}</p>
-      <p className="mt-1 text-lg font-black text-[var(--pf-text)]">{value}</p>
+    <div className="shrink-0 rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--pf-muted)]">{label}</span>
+        <span className="text-sm font-black text-[var(--pf-text)]">{value}</span>
+      </div>
     </div>
   );
 }
@@ -153,6 +155,8 @@ export default function Marketplace({
   onThemeChange,
   favoritePartIds,
   onToggleFavorite,
+  myPartsCount,
+  soldCount,
 }) {
   const [selectedPart, setSelectedPart] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -417,7 +421,7 @@ export default function Marketplace({
               </div>
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="mt-4 space-y-3">
               <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3 text-sm text-[var(--pf-muted)]">
                 Eingeloggt als{' '}
                 <span className="font-semibold text-[var(--pf-text)]">
@@ -425,11 +429,11 @@ export default function Marketplace({
                 </span>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-4 xl:w-[50rem]">
-                <SmallStat label="Inserate" value={totalParts} />
-                <SmallStat label="Kategorien" value={categories.length} />
-                <SmallStat label="Eigene" value={myPartsCount} />
-                <SmallStat label="Verkauft" value={soldCount} />
+              <div className="flex gap-2 overflow-x-auto pb-1 pf-scroll">
+                <CompactStat label="Inserate" value={totalParts} />
+                <CompactStat label="Kategorien" value={categories.length} />
+                <CompactStat label="Eigene" value={myPartsCount} />
+                <CompactStat label="Verkauft" value={soldCount} />
               </div>
             </div>
           </header>

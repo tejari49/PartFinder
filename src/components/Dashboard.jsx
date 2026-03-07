@@ -50,6 +50,15 @@ function StatusBadge({ status }) {
   );
 }
 
+function OverviewTile({ label, value }) {
+  return (
+    <div className="rounded-[1rem] bg-[var(--pf-surface-2)] px-3 py-3">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--pf-muted)]">{label}</p>
+      <p className="mt-1 text-sm font-black text-[var(--pf-text)]">{value}</p>
+    </div>
+  );
+}
+
 export default function Dashboard({
   user,
   profile,
@@ -69,6 +78,9 @@ export default function Dashboard({
   theme,
   onThemeChange,
   favoriteParts,
+  totalPartsCount,
+  categoriesCount,
+  totalSoldCount,
 }) {
   const [activeSection, setActiveSection] = useState(selectedChatId ? 'chats' : 'profile');
   const [profileForm, setProfileForm] = useState({
@@ -243,6 +255,18 @@ export default function Dashboard({
               <div className="rounded-[1rem] bg-[var(--pf-surface-2)] px-3 py-3">
                 <p className="text-[var(--pf-muted)]">Chats</p>
                 <p className="mt-1 font-black text-[var(--pf-text)]">{sortedChats.length}</p>
+              </div>
+            </div>
+
+            <div className="mb-4 rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface)]/80 p-3">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--pf-primary)]">
+                Markt-Überblick
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <OverviewTile label="Inserate" value={totalPartsCount} />
+                <OverviewTile label="Kategorien" value={categoriesCount} />
+                <OverviewTile label="Eigene" value={myParts.length} />
+                <OverviewTile label="Verkauft" value={totalSoldCount} />
               </div>
             </div>
 

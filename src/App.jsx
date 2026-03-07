@@ -296,6 +296,11 @@ export default function App() {
     [favoritePartIds, parts],
   );
 
+  const totalSoldParts = useMemo(
+    () => parts.filter((part) => (part.status || 'active') === 'sold').length,
+    [parts],
+  );
+
   const unreadChatsCount = useMemo(
     () => chats.filter((chat) => Array.isArray(chat.unreadBy) && chat.unreadBy.includes(user?.uid)).length,
     [chats, user?.uid],
@@ -644,6 +649,9 @@ export default function App() {
             theme={theme}
             onThemeChange={setTheme}
             favoriteParts={favoriteParts}
+            totalPartsCount={parts.length}
+            categoriesCount={categories.length}
+            totalSoldCount={totalSoldParts}
           />
         ) : (
           <Marketplace
@@ -672,6 +680,8 @@ export default function App() {
             onThemeChange={setTheme}
             favoritePartIds={favoritePartIds}
             onToggleFavorite={handleToggleFavorite}
+            myPartsCount={myParts.length}
+            soldCount={totalSoldParts}
           />
         )
       ) : (
