@@ -25,6 +25,14 @@ service cloud.firestore {
       return !(field in data) || data[field] is list;
     }
 
+    function optionalTimestamp(data, field) {
+      return !(field in data) || data[field] is timestamp || data[field] == null;
+    }
+
+    function optionalStatus(data, field) {
+      return !(field in data) || (data[field] is string && data[field].matches('^(active|sold)$'));
+    }
+
     match /categories/{categoryId} {
       allow read: if signedIn();
       allow create, update: if signedIn()
@@ -74,7 +82,9 @@ service cloud.firestore {
         && optionalNumber(request.resource.data, 'imageCount')
         && optionalString(request.resource.data, 'location')
         && optionalBool(request.resource.data, 'shippingAvailable')
-        && optionalBool(request.resource.data, 'pickupAvailable');
+        && optionalBool(request.resource.data, 'pickupAvailable')
+        && optionalStatus(request.resource.data, 'status')
+        && optionalTimestamp(request.resource.data, 'soldAt');
       allow update: if signedIn()
         && resource.data.sellerUid == request.auth.uid
         && request.resource.data.sellerUid == request.auth.uid
@@ -93,7 +103,9 @@ service cloud.firestore {
         && optionalNumber(request.resource.data, 'imageCount')
         && optionalString(request.resource.data, 'location')
         && optionalBool(request.resource.data, 'shippingAvailable')
-        && optionalBool(request.resource.data, 'pickupAvailable');
+        && optionalBool(request.resource.data, 'pickupAvailable')
+        && optionalStatus(request.resource.data, 'status')
+        && optionalTimestamp(request.resource.data, 'soldAt');
       allow delete: if signedIn() && resource.data.sellerUid == request.auth.uid;
     }
 

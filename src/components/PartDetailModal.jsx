@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Avatar from './Avatar';
 import ModalShell from './ModalShell';
 import { currencyFormatter, formatDateTime, normalizePhone } from '../utils/format';
@@ -10,6 +10,18 @@ function deliveryLabel(part) {
   return entries.length > 0 ? entries.join(' • ') : 'Keine Angabe';
 }
 
+function StatusChip({ status }) {
+  return status === 'sold' ? (
+    <span className="rounded-full bg-[var(--pf-danger)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
+      Verkauft
+    </span>
+  ) : (
+    <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-400">
+      Aktiv
+    </span>
+  );
+}
+
 export default function PartDetailModal({
   part,
   sellerProfile,
@@ -18,6 +30,7 @@ export default function PartDetailModal({
   onStartChat,
   onEditPart,
   onDeletePart,
+  onSetPartStatus,
   isFavorite,
   onToggleFavorite,
 }) {
@@ -29,12 +42,17 @@ export default function PartDetailModal({
   }, [part.imageBase64, part.imagesBase64]);
   const [activeImage, setActiveImage] = useState(images[0] || '');
 
+  useEffect(() => {
+    setActiveImage(images[0] || '');
+  }, [images, part.id]);
+
   const sellerName = sellerProfile?.displayName || part.sellerDisplayName || part.sellerEmail || 'Verkäufer';
   const whatsappNumber = normalizePhone(sellerProfile?.whatsappNumber || '');
   const whatsappLink = whatsappNumber
     ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hallo, ich interessiere mich für dein Inserat "${part.title}".`)}`
     : '';
   const ownPart = currentUser?.uid === part.sellerUid;
+  const isSold = (part.status || 'active') === 'sold';
 
   return (
     <ModalShell title="Inserat Details" onClose={onClose} maxWidth="max-w-6xl">
@@ -44,7 +62,9 @@ export default function PartDetailModal({
             {activeImage ? (
               <img src={activeImage} alt={part.title} className="h-[18rem] w-full object-cover sm:h-[24rem]" />
             ) : (
-              <div className="flex h-[18rem] items-center justify-center text-[var(--pf-muted)] sm:h-[24rem]">Kein Bild</div>
+              <div className="flex h-[18rem] items-center justify-center text-[var(--pf-muted)] sm:h-[24rem]">
+                Kein Bild
+              </div>
             )}
           </div>
 
@@ -70,7 +90,10 @@ export default function PartDetailModal({
           <div className="rounded-[1.75rem] pf-card p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--pf-primary)]">{part.category}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--pf-primary)]">{part.category}</p>
+                  <StatusChip status={part.status || 'active'} />
+                </div>
                 <h2 className="mt-2 text-2xl font-black text-[var(--pf-text)] sm:text-3xl">{part.title}</h2>
                 <p className="mt-2 text-sm text-[var(--pf-muted)]">{part.brand} • {part.model}</p>
               </div>
@@ -79,6 +102,12 @@ export default function PartDetailModal({
                 <p className="mt-1 text-xl font-black">{currencyFormatter.format(Number(part.price || 0))}</p>
               </div>
             </div>
+
+            {isSold ? (
+              <div className="mt-4 rounded-[1.1rem] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+                Dieses Teil ist aktuell als verkauft markiert.
+              </div>
+            ) : null}
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3">
@@ -114,12 +143,17 @@ export default function PartDetailModal({
             <div className="mt-4 flex flex-wrap gap-3">
               {!ownPart ? (
                 <>
-                  {whatsappLink ? (
+                  {whatsappLink && !isSold ? (
                     <a href={whatsappLink} target="_blank" rel="noreferrer" className="pf-button-primary inline-flex px-4 py-3">
                       WhatsApp öffnen
                     </a>
                   ) : null}
-                  <button type="button" onClick={() => onStartChat(part)} className="pf-button-secondary px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => onStartChat(part)}
+                    disabled={isSold}
+                    className="pf-button-secondary px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
                     In-App Chat
                   </button>
                   <button type="button" onClick={() => onToggleFavorite(part)} className="pf-button-secondary px-4 py-3">
@@ -131,6 +165,13 @@ export default function PartDetailModal({
                   <button type="button" onClick={() => onEditPart(part)} className="pf-button-secondary px-4 py-3">
                     Bearbeiten
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => onSetPartStatus(part, isSold ? 'active' : 'sold')}
+                    className="pf-button-secondary px-4 py-3"
+                  >
+                    {isSold ? 'Wieder aktiv' : 'Als verkauft markieren'}
+                  </button>
                   <button type="button" onClick={() => onDeletePart(part)} className="pf-button-danger px-4 py-3">
                     Löschen
                   </button>
@@ -138,7 +179,7 @@ export default function PartDetailModal({
               )}
             </div>
 
-            {!ownPart && !whatsappLink ? (
+            {!ownPart && !whatsappLink && !isSold ? (
               <p className="mt-3 text-sm text-[var(--pf-muted)]">Keine WhatsApp-Nummer hinterlegt. Nutze den In-App Chat.</p>
             ) : null}
           </div>

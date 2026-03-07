@@ -19,12 +19,34 @@ function NavItem({ active, onClick, label, badge }) {
       type="button"
       onClick={onClick}
       className={`flex w-full items-center justify-between rounded-[1rem] px-4 py-3 text-left text-sm font-semibold transition ${
-        active ? 'bg-[var(--pf-primary)] text-[#04111a]' : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)] hover:bg-[var(--pf-surface-3)]'
+        active
+          ? 'bg-[var(--pf-primary)] text-[#04111a]'
+          : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)] hover:bg-[var(--pf-surface-3)]'
       }`}
     >
       <span>{label}</span>
-      {badge ? <span className={`rounded-full px-2 py-0.5 text-[11px] ${active ? 'bg-white/30 text-[#04111a]' : 'bg-[var(--pf-danger)] text-white'}`}>{badge}</span> : null}
+      {badge ? (
+        <span
+          className={`rounded-full px-2 py-0.5 text-[11px] ${
+            active ? 'bg-white/30 text-[#04111a]' : 'bg-[var(--pf-danger)] text-white'
+          }`}
+        >
+          {badge}
+        </span>
+      ) : null}
     </button>
+  );
+}
+
+function StatusBadge({ status }) {
+  return status === 'sold' ? (
+    <span className="rounded-full bg-[var(--pf-danger)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white">
+      Verkauft
+    </span>
+  ) : (
+    <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-400">
+      Aktiv
+    </span>
   );
 }
 
@@ -42,6 +64,7 @@ export default function Dashboard({
   myParts,
   onEditPart,
   onDeletePart,
+  onSetPartStatus,
   unreadChatsCount,
   theme,
   onThemeChange,
@@ -59,6 +82,7 @@ export default function Dashboard({
     currentPassword: '',
     newPassword: '',
   });
+  const [partsFilter, setPartsFilter] = useState('all');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [processingAvatar, setProcessingAvatar] = useState(false);
@@ -95,6 +119,24 @@ export default function Dashboard({
       onSelectChat(sortedChats[0].id);
     }
   }, [onSelectChat, selectedChatId, sortedChats]);
+
+  const activeParts = useMemo(
+    () => myParts.filter((part) => (part.status || 'active') === 'active'),
+    [myParts],
+  );
+  const soldParts = useMemo(
+    () => myParts.filter((part) => (part.status || 'active') === 'sold'),
+    [myParts],
+  );
+  const visibleParts = useMemo(() => {
+    if (partsFilter === 'active') {
+      return activeParts;
+    }
+    if (partsFilter === 'sold') {
+      return soldParts;
+    }
+    return myParts;
+  }, [activeParts, myParts, partsFilter, soldParts]);
 
   const handleAvatarChange = async (event) => {
     const file = event.target.files?.[0];
@@ -156,9 +198,13 @@ export default function Dashboard({
         <header className="mb-5 rounded-[1.75rem] pf-glass p-4 sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--pf-primary)]">Dashboard</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--pf-primary)]">
+                Dashboard
+              </p>
               <h1 className="mt-2 text-2xl font-black text-[var(--pf-text)]">Dein Bereich</h1>
-              <p className="mt-2 text-sm text-[var(--pf-muted)]">Links wählen, rechts bearbeiten. Auf dem Smartphone als Dropdown-Menü.</p>
+              <p className="mt-2 text-sm text-[var(--pf-muted)]">
+                Links wählen, rechts bearbeiten. Auf dem Smartphone als Dropdown-Menü.
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <ThemeSwitcher value={theme} onChange={onThemeChange} compact />
@@ -172,10 +218,31 @@ export default function Dashboard({
         <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="rounded-[1.5rem] pf-card p-4">
             <div className="mb-4 flex items-center gap-3">
-              <Avatar name={profileForm.displayName || user.displayName || user.email} src={profileForm.avatarBase64} size="md" />
+              <Avatar
+                name={profileForm.displayName || user.displayName || user.email}
+                src={profileForm.avatarBase64}
+                size="md"
+              />
               <div className="min-w-0">
-                <p className="truncate font-bold text-[var(--pf-text)]">{profileForm.displayName || user.displayName || user.email}</p>
+                <p className="truncate font-bold text-[var(--pf-text)]">
+                  {profileForm.displayName || user.displayName || user.email}
+                </p>
                 <p className="truncate text-sm text-[var(--pf-muted)]">{user.email}</p>
+              </div>
+            </div>
+
+            <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="rounded-[1rem] bg-[var(--pf-surface-2)] px-3 py-3">
+                <p className="text-[var(--pf-muted)]">Aktiv</p>
+                <p className="mt-1 font-black text-[var(--pf-text)]">{activeParts.length}</p>
+              </div>
+              <div className="rounded-[1rem] bg-[var(--pf-surface-2)] px-3 py-3">
+                <p className="text-[var(--pf-muted)]">Verkauft</p>
+                <p className="mt-1 font-black text-[var(--pf-text)]">{soldParts.length}</p>
+              </div>
+              <div className="rounded-[1rem] bg-[var(--pf-surface-2)] px-3 py-3">
+                <p className="text-[var(--pf-muted)]">Chats</p>
+                <p className="mt-1 font-black text-[var(--pf-text)]">{sortedChats.length}</p>
               </div>
             </div>
 
@@ -203,7 +270,9 @@ export default function Dashboard({
               <section className="rounded-[1.5rem] pf-card p-5">
                 <div className="mb-5">
                   <h2 className="text-xl font-bold text-[var(--pf-text)]">Profil</h2>
-                  <p className="mt-1 text-sm text-[var(--pf-muted)]">Name, WhatsApp, Chatfreigabe, Theme und Profilbild.</p>
+                  <p className="mt-1 text-sm text-[var(--pf-muted)]">
+                    Name, WhatsApp, Chatfreigabe, Theme und Profilbild.
+                  </p>
                 </div>
 
                 <form onSubmit={handleProfileSubmit} className="space-y-4">
@@ -286,7 +355,9 @@ export default function Dashboard({
               <section className="rounded-[1.5rem] pf-card p-5">
                 <div className="mb-5">
                   <h2 className="text-xl font-bold text-[var(--pf-text)]">Passwort ändern</h2>
-                  <p className="mt-1 text-sm text-[var(--pf-muted)]">Aus Sicherheitsgründen wird dein aktuelles Passwort benötigt.</p>
+                  <p className="mt-1 text-sm text-[var(--pf-muted)]">
+                    Aus Sicherheitsgründen wird dein aktuelles Passwort benötigt.
+                  </p>
                 </div>
 
                 <form onSubmit={handlePasswordSubmit} className="space-y-4">
@@ -327,7 +398,9 @@ export default function Dashboard({
                     <h2 className="text-xl font-bold text-[var(--pf-text)]">Merkliste</h2>
                     <p className="mt-1 text-sm text-[var(--pf-muted)]">Gespeicherte Inserate für später.</p>
                   </div>
-                  <div className="rounded-full bg-[var(--pf-primary-soft)] px-3 py-1 text-sm font-semibold text-[var(--pf-primary)]">{favoriteParts.length}</div>
+                  <div className="rounded-full bg-[var(--pf-primary-soft)] px-3 py-1 text-sm font-semibold text-[var(--pf-primary)]">
+                    {favoriteParts.length}
+                  </div>
                 </div>
 
                 {favoriteParts.length === 0 ? (
@@ -338,14 +411,19 @@ export default function Dashboard({
                   <div className="grid gap-4 md:grid-cols-2">
                     {favoriteParts.map((part) => (
                       <div key={part.id} className="overflow-hidden rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)]">
-                        {(part.imagesBase64?.[0] || part.imageBase64) ? (
+                        {part.imagesBase64?.[0] || part.imageBase64 ? (
                           <img src={part.imagesBase64?.[0] || part.imageBase64} alt={part.title} className="h-36 w-full object-cover" />
                         ) : null}
-                        <div className="p-4">
-                          <h3 className="font-bold text-[var(--pf-text)]">{part.title}</h3>
-                          <p className="mt-1 text-sm text-[var(--pf-muted)]">{part.brand} • {part.model}</p>
-                          <div className="mt-3 flex items-center justify-between gap-3">
-                            <span className="text-base font-black text-[var(--pf-text)]">{currencyFormatter.format(Number(part.price || 0))}</span>
+                        <div className="space-y-3 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <h3 className="font-bold text-[var(--pf-text)]">{part.title}</h3>
+                            <StatusBadge status={part.status || 'active'} />
+                          </div>
+                          <p className="text-sm text-[var(--pf-muted)]">{part.brand} • {part.model}</p>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-base font-black text-[var(--pf-text)]">
+                              {currencyFormatter.format(Number(part.price || 0))}
+                            </span>
                             <span className="text-xs text-[var(--pf-muted)]">{part.location || 'Ohne Standort'}</span>
                           </div>
                         </div>
@@ -392,7 +470,9 @@ export default function Dashboard({
                               <Avatar name={otherProfile?.displayName || chat.participantNames?.[otherUid] || 'Kontakt'} src={otherProfile?.avatarBase64 || ''} size="sm" />
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2">
-                                  <p className="truncate font-semibold text-[var(--pf-text)]">{otherProfile?.displayName || chat.participantNames?.[otherUid] || 'Kontakt'}</p>
+                                  <p className="truncate font-semibold text-[var(--pf-text)]">
+                                    {otherProfile?.displayName || chat.participantNames?.[otherUid] || 'Kontakt'}
+                                  </p>
                                   {unread ? <span className="rounded-full bg-[var(--pf-danger)] px-2 py-0.5 text-[11px] text-white">Neu</span> : null}
                                 </div>
                                 <p className="mt-1 truncate text-sm text-[var(--pf-muted)]">{chat.partTitle || 'Inserat'}</p>
@@ -413,32 +493,79 @@ export default function Dashboard({
 
             {activeSection === 'parts' ? (
               <section className="rounded-[1.5rem] pf-card p-5">
-                <div className="mb-5 flex items-center justify-between gap-3">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-bold text-[var(--pf-text)]">Eigene Inserate</h2>
-                    <p className="mt-1 text-sm text-[var(--pf-muted)]">Bearbeiten oder löschen. Öffnet den Editor im Marktplatz.</p>
+                    <p className="mt-1 text-sm text-[var(--pf-muted)]">
+                      Verkauft-Status setzen, bearbeiten oder löschen. Der Editor öffnet sich im Marktplatz.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPartsFilter('all')}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                        partsFilter === 'all'
+                          ? 'bg-[var(--pf-primary)] text-[#04111a]'
+                          : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)]'
+                      }`}
+                    >
+                      Alle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPartsFilter('active')}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                        partsFilter === 'active'
+                          ? 'bg-[var(--pf-primary)] text-[#04111a]'
+                          : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)]'
+                      }`}
+                    >
+                      Aktiv
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPartsFilter('sold')}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                        partsFilter === 'sold'
+                          ? 'bg-[var(--pf-primary)] text-[#04111a]'
+                          : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)]'
+                      }`}
+                    >
+                      Verkauft
+                    </button>
                   </div>
                 </div>
 
-                {myParts.length === 0 ? (
+                {visibleParts.length === 0 ? (
                   <div className="rounded-[1.25rem] border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-6 text-sm text-[var(--pf-muted)]">
-                    Noch keine eigenen Inserate vorhanden.
+                    Keine Inserate in dieser Ansicht.
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {myParts.map((part) => (
+                    {visibleParts.map((part) => (
                       <div key={part.id} className="flex flex-col gap-4 rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3">
-                          {(part.imagesBase64?.[0] || part.imageBase64) ? (
+                          {part.imagesBase64?.[0] || part.imageBase64 ? (
                             <img src={part.imagesBase64?.[0] || part.imageBase64} alt={part.title} className="h-16 w-16 rounded-[1rem] object-cover" />
                           ) : null}
                           <div>
-                            <p className="font-semibold text-[var(--pf-text)]">{part.title}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-semibold text-[var(--pf-text)]">{part.title}</p>
+                              <StatusBadge status={part.status || 'active'} />
+                            </div>
                             <p className="mt-1 text-sm text-[var(--pf-muted)]">{part.brand} • {part.model}</p>
                             <p className="mt-1 text-sm font-semibold text-[var(--pf-text)]">{currencyFormatter.format(Number(part.price || 0))}</p>
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onSetPartStatus(part, (part.status || 'active') === 'sold' ? 'active' : 'sold')}
+                            className="pf-button-secondary px-4 py-2.5 text-sm"
+                          >
+                            {(part.status || 'active') === 'sold' ? 'Aktivieren' : 'Verkaufen'}
+                          </button>
                           <button type="button" onClick={() => onEditPart(part)} className="pf-button-secondary px-4 py-2.5 text-sm">
                             Bearbeiten
                           </button>

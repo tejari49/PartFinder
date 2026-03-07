@@ -25,6 +25,7 @@ import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import Marketplace from './components/Marketplace';
 import Toast from './components/Toast';
+import { validateCategoryInput } from './utils/categoryValidation';
 import { getFallbackDisplayName, normalizeCategoryName, slugify } from './utils/format';
 
 const getChatIdForPart = (partId, firstUid, secondUid) => {
@@ -280,9 +281,15 @@ export default function App() {
     return parts.filter((part) => part.categorySlug === activeSlug);
   }, [parts, selectedCategory]);
 
-  const myParts = useMemo(() => parts.filter((part) => part.sellerUid === user?.uid), [parts, user?.uid]);
+  const myParts = useMemo(
+    () => parts.filter((part) => part.sellerUid === user?.uid),
+    [parts, user?.uid],
+  );
 
-  const favoritePartIds = useMemo(() => favorites.map((favorite) => favorite.partId).filter(Boolean), [favorites]);
+  const favoritePartIds = useMemo(
+    () => favorites.map((favorite) => favorite.partId).filter(Boolean),
+    [favorites],
+  );
 
   const favoriteParts = useMemo(
     () => favoritePartIds.map((partId) => parts.find((part) => part.id === partId)).filter(Boolean),
@@ -298,6 +305,12 @@ export default function App() {
     if (!user) {
       pushToast('Bitte zuerst anmelden.', 'error');
       return;
+    }
+
+    const categoryCheck = validateCategoryInput(payload.category, categories);
+    if (!categoryCheck.ok) {
+      pushToast(categoryCheck.reason, 'error');
+      throw new Error('invalid-category');
     }
 
     const normalizedCategory = normalizeCategoryName(payload.category);
@@ -325,6 +338,8 @@ export default function App() {
         { merge: true },
       );
 
+      const preservedStatus = existingPart?.status === 'sold' ? 'sold' : 'active';
+
       const commonFields = {
         category: normalizedCategory,
         categorySlug,
@@ -343,6 +358,8 @@ export default function App() {
         sellerUid: user.uid,
         sellerEmail: user.email || '',
         sellerDisplayName: userProfile?.displayName || getFallbackDisplayName(user),
+        status: preservedStatus,
+        soldAt: preservedStatus === 'sold' ? existingPart?.soldAt || serverTimestamp() : null,
         updatedAt: serverTimestamp(),
       };
 
@@ -353,6 +370,8 @@ export default function App() {
       } else {
         await addDoc(collection(db, 'parts'), {
           ...commonFields,
+          status: 'active',
+          soldAt: null,
           createdAt: serverTimestamp(),
         });
         pushToast('Autoteil wurde erfolgreich veröffentlicht.', 'success');
@@ -395,6 +414,31 @@ export default function App() {
       console.error(error);
       pushToast('Inserat konnte nicht gelöscht werden.', 'error');
       throw error;
+    }
+  };
+
+  const handleSetPartStatus = async (part, nextStatus) => {
+    if (!user || part.sellerUid !== user.uid) {
+      pushToast('Nur eigene Inserate können geändert werden.', 'error');
+      return;
+    }
+
+    if (!['active', 'sold'].includes(nextStatus)) {
+      pushToast('Unbekannter Status.', 'error');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'parts', part.id), {
+        status: nextStatus,
+        soldAt: nextStatus === 'sold' ? serverTimestamp() : null,
+        updatedAt: serverTimestamp(),
+      });
+
+      pushToast(nextStatus === 'sold' ? 'Inserat als verkauft markiert.' : 'Inserat wieder aktiv geschaltet.', 'success');
+    } catch (error) {
+      console.error(error);
+      pushToast('Status konnte nicht geändert werden.', 'error');
     }
   };
 
@@ -509,6 +553,11 @@ export default function App() {
       return;
     }
 
+    if (part.status === 'sold') {
+      pushToast('Dieses Inserat ist bereits als verkauft markiert.', 'info');
+      return;
+    }
+
     const sellerProfile = profilesByUid[part.sellerUid];
 
     if (sellerProfile?.chatEnabled === false) {
@@ -590,6 +639,7 @@ export default function App() {
               setActiveView('marketplace');
             }}
             onDeletePart={handleDeletePart}
+            onSetPartStatus={handleSetPartStatus}
             unreadChatsCount={unreadChatsCount}
             theme={theme}
             onThemeChange={setTheme}
@@ -616,6 +666,7 @@ export default function App() {
             onCancelEdit={handleCancelEdit}
             onEditPart={handleEditPart}
             onDeletePart={handleDeletePart}
+            onSetPartStatus={handleSetPartStatus}
             unreadChatsCount={unreadChatsCount}
             theme={theme}
             onThemeChange={setTheme}
