@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AddPartForm from './AddPartForm';
 import PartDetailModal from './PartDetailModal';
 import ThemeSwitcher from './ThemeSwitcher';
@@ -38,6 +38,31 @@ function StatusPill({ status }) {
     <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-400">
       Aktiv
     </span>
+  );
+}
+
+function MobileNavButton({ active, label, badge, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-[1.15rem] px-3 py-2 text-[11px] font-semibold transition ${
+        active
+          ? 'bg-[var(--pf-primary)] text-[#04111a]'
+          : 'bg-transparent text-[var(--pf-muted)] hover:bg-[var(--pf-surface-2)] hover:text-[var(--pf-text)]'
+      }`}
+    >
+      <span className="truncate">{label}</span>
+      {badge ? (
+        <span
+          className={`mt-1 rounded-full px-2 py-0.5 text-[10px] ${
+            active ? 'bg-white/25 text-[#04111a]' : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)]'
+          }`}
+        >
+          {badge}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
@@ -137,6 +162,13 @@ export default function Marketplace({
   const [statusFilter, setStatusFilter] = useState('all');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [mobileSection, setMobileSection] = useState('list');
+
+  useEffect(() => {
+    if (editingPart) {
+      setMobileSection('sell');
+    }
+  }, [editingPart]);
 
   const visibleParts = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
@@ -191,11 +223,170 @@ export default function Marketplace({
     () => parts.filter((part) => (part.status || 'active') === 'sold').length,
     [parts],
   );
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+
+    if (listingScope === 'mine') count += 1;
+    if (showOnlyFavorites) count += 1;
+    if (statusFilter !== 'all') count += 1;
+    if (minPrice !== '') count += 1;
+    if (maxPrice !== '') count += 1;
+    if (sortMode !== 'newest') count += 1;
+    if (selectedCategory !== 'Alle') count += 1;
+
+    return count;
+  }, [listingScope, maxPrice, minPrice, selectedCategory, showOnlyFavorites, sortMode, statusFilter]);
+
+  const activeMobileSummary = useMemo(() => {
+    const tags = [];
+
+    if (selectedCategory !== 'Alle') tags.push(selectedCategory);
+    if (listingScope === 'mine') tags.push('Meine Inserate');
+    if (showOnlyFavorites) tags.push('Merkliste');
+    if (statusFilter === 'active') tags.push('Nur aktiv');
+    if (statusFilter === 'sold') tags.push('Nur verkauft');
+    if (minPrice !== '') tags.push(`ab ${minPrice}€`);
+    if (maxPrice !== '') tags.push(`bis ${maxPrice}€`);
+
+    return tags;
+  }, [listingScope, maxPrice, minPrice, selectedCategory, showOnlyFavorites, statusFilter]);
+
+  const handleCategorySelect = (category) => {
+    onSelectCategory(category);
+    setMobileSection('list');
+  };
+
+  const handleCancelEdit = () => {
+    onCancelEdit();
+    setMobileSection('list');
+  };
+
+  const renderResults = (isMobile = false) => {
+    if (partsLoading) {
+      return (
+        <div className="rounded-[1.75rem] pf-card p-8 text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-[var(--pf-primary-soft)]" />
+          <p className="text-lg font-semibold text-[var(--pf-text)]">Inserate werden geladen…</p>
+        </div>
+      );
+    }
+
+    if (visibleParts.length === 0) {
+      return (
+        <div className="rounded-[1.75rem] border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-8 text-center sm:p-10">
+          <p className="text-lg font-semibold text-[var(--pf-text)]">Keine passenden Inserate gefunden.</p>
+          <p className="mt-2 text-sm text-[var(--pf-muted)]">
+            {isMobile
+              ? 'Prüfe Filter und Kategorien oder erstelle über die untere Leiste dein erstes Inserat.'
+              : 'Passe Suche, Preisbereich, Status oder Kategorie an.'}
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {visibleParts.map((part) => (
+          <PartCard
+            key={part.id}
+            part={part}
+            onOpenDetails={setSelectedPart}
+            isOwn={part.sellerUid === user.uid}
+            isFavorite={favoritePartIds.includes(part.id)}
+            onToggleFavorite={onToggleFavorite}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  const renderFilterControls = (framed = true) => (
+    <div className={framed ? 'rounded-[1.45rem] pf-card p-4' : ''}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input
+          type="number"
+          min="0"
+          value={minPrice}
+          onChange={(event) => setMinPrice(event.target.value)}
+          placeholder="Preis ab"
+          className="pf-input px-4 py-3"
+        />
+        <input
+          type="number"
+          min="0"
+          value={maxPrice}
+          onChange={(event) => setMaxPrice(event.target.value)}
+          placeholder="Preis bis"
+          className="pf-input px-4 py-3"
+        />
+        <select value={sortMode} onChange={(event) => setSortMode(event.target.value)} className="pf-select px-4 py-3">
+          <option value="newest">Neueste zuerst</option>
+          <option value="price-asc">Preis günstig → teuer</option>
+          <option value="price-desc">Preis teuer → günstig</option>
+        </select>
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="pf-select px-4 py-3">
+          <option value="all">Alle Status</option>
+          <option value="active">Nur aktiv</option>
+          <option value="sold">Nur verkauft</option>
+        </select>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <ScopeTab active={listingScope === 'all'} onClick={() => setListingScope('all')}>
+          Alle Inserate
+        </ScopeTab>
+        <ScopeTab active={listingScope === 'mine'} onClick={() => setListingScope('mine')}>
+          Meine Inserate
+        </ScopeTab>
+        <ScopeTab active={showOnlyFavorites} onClick={() => setShowOnlyFavorites((prev) => !prev)}>
+          {showOnlyFavorites ? 'Merkliste aktiv' : 'Nur Merkliste'}
+        </ScopeTab>
+      </div>
+    </div>
+  );
+
+  const renderCategoryControls = (framed = true) => (
+    <div className={framed ? 'rounded-[1.45rem] pf-card p-4' : ''}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[var(--pf-text)]">Kategorien</p>
+          <p className="mt-1 text-xs text-[var(--pf-muted)]">
+            {categoriesLoading ? 'Kategorien werden geladen…' : `${visibleParts.length} Treffer sichtbar.`}
+          </p>
+        </div>
+        {selectedCategory !== 'Alle' ? (
+          <button type="button" onClick={() => handleCategorySelect('Alle')} className="pf-button-secondary px-3 py-2 text-xs">
+            Zurücksetzen
+          </button>
+        ) : null}
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto pb-1 pf-scroll xl:flex-wrap xl:overflow-visible">
+        <button
+          type="button"
+          onClick={() => handleCategorySelect('Alle')}
+          className={`${selectedCategory === 'Alle' ? 'pf-chip-active' : 'pf-chip'} shrink-0 px-4 py-2 text-sm font-semibold`}
+        >
+          Alle
+        </button>
+        {categories.map((category) => (
+          <button
+            key={category}
+            type="button"
+            onClick={() => handleCategorySelect(category)}
+            className={`${selectedCategory === category ? 'pf-chip-active' : 'pf-chip'} shrink-0 px-4 py-2 text-sm font-semibold`}
+          >
+            {category}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <>
       <div className="pf-page">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 py-4 pb-28 sm:px-6 lg:px-8 xl:pb-8">
           <header className="mb-6 rounded-[1.6rem] pf-glass p-4 sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -253,112 +444,98 @@ export default function Marketplace({
                 className="pf-input px-4 py-3"
               />
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <input
-                  type="number"
-                  min="0"
-                  value={minPrice}
-                  onChange={(event) => setMinPrice(event.target.value)}
-                  placeholder="Preis ab"
-                  className="pf-input px-4 py-3"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={maxPrice}
-                  onChange={(event) => setMaxPrice(event.target.value)}
-                  placeholder="Preis bis"
-                  className="pf-input px-4 py-3"
-                />
-                <select value={sortMode} onChange={(event) => setSortMode(event.target.value)} className="pf-select px-4 py-3">
-                  <option value="newest">Neueste zuerst</option>
-                  <option value="price-asc">Preis günstig → teuer</option>
-                  <option value="price-desc">Preis teuer → günstig</option>
-                </select>
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="pf-select px-4 py-3">
-                  <option value="all">Alle Status</option>
-                  <option value="active">Nur aktiv</option>
-                  <option value="sold">Nur verkauft</option>
-                </select>
+              <div className="hidden xl:block">{renderFilterControls(false)}</div>
+            </div>
+
+            <div className="mt-4 hidden xl:block">{renderCategoryControls(false)}</div>
+
+            <div className="mt-4 xl:hidden">
+              <div className="flex gap-2 overflow-x-auto pb-1 pf-scroll">
+                <span className="shrink-0 rounded-full bg-[var(--pf-primary-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--pf-primary)]">
+                  {visibleParts.length} Treffer
+                </span>
+                {activeMobileSummary.length > 0 ? (
+                  activeMobileSummary.map((item) => (
+                    <span
+                      key={item}
+                      className="shrink-0 rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--pf-text)]"
+                    >
+                      {item}
+                    </span>
+                  ))
+                ) : (
+                  <span className="shrink-0 rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--pf-muted)]">
+                    Keine aktiven Filter
+                  </span>
+                )}
               </div>
             </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <ScopeTab active={listingScope === 'all'} onClick={() => setListingScope('all')}>
-                Alle Inserate
-              </ScopeTab>
-              <ScopeTab active={listingScope === 'mine'} onClick={() => setListingScope('mine')}>
-                Meine Inserate
-              </ScopeTab>
-              <ScopeTab active={showOnlyFavorites} onClick={() => setShowOnlyFavorites((prev) => !prev)}>
-                {showOnlyFavorites ? 'Merkliste aktiv' : 'Nur Merkliste'}
-              </ScopeTab>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => onSelectCategory('Alle')}
-                className={`${selectedCategory === 'Alle' ? 'pf-chip-active' : 'pf-chip'} px-4 py-2 text-sm font-semibold`}
-              >
-                Alle
-              </button>
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => onSelectCategory(category)}
-                  className={`${selectedCategory === category ? 'pf-chip-active' : 'pf-chip'} px-4 py-2 text-sm font-semibold`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-
-            <p className="mt-3 text-xs text-[var(--pf-muted)]">
-              {categoriesLoading ? 'Kategorien werden geladen…' : `${visibleParts.length} Treffer sichtbar.`}
-            </p>
           </section>
 
-          <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="xl:hidden">
+            {mobileSection === 'list' ? (
+              <section>{renderResults(true)}</section>
+            ) : null}
+
+            {mobileSection === 'filters' ? (
+              <section className="space-y-4">
+                {renderFilterControls()}
+                <div className="rounded-[1.45rem] border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3 text-sm text-[var(--pf-muted)]">
+                  Tipp: Kategorien findest du unten in der Leiste separat, damit die Startseite auf dem Handy kompakt bleibt.
+                </div>
+              </section>
+            ) : null}
+
+            {mobileSection === 'categories' ? <section>{renderCategoryControls()}</section> : null}
+
+            {mobileSection === 'sell' ? (
+              <section>
+                <AddPartForm
+                  categories={categories}
+                  onSubmit={onAddPart}
+                  onToast={onToast}
+                  editingPart={editingPart}
+                  onCancelEdit={handleCancelEdit}
+                />
+              </section>
+            ) : null}
+          </div>
+
+          <div className="hidden gap-5 xl:grid xl:grid-cols-[360px_minmax(0,1fr)]">
             <aside>
               <AddPartForm
                 categories={categories}
                 onSubmit={onAddPart}
                 onToast={onToast}
                 editingPart={editingPart}
-                onCancelEdit={onCancelEdit}
+                onCancelEdit={handleCancelEdit}
               />
             </aside>
 
-            <section>
-              {partsLoading ? (
-                <div className="rounded-[1.75rem] pf-card p-8 text-center">
-                  <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-[var(--pf-primary-soft)]" />
-                  <p className="text-lg font-semibold text-[var(--pf-text)]">Inserate werden geladen…</p>
-                </div>
-              ) : visibleParts.length === 0 ? (
-                <div className="rounded-[1.75rem] border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-10 text-center">
-                  <p className="text-lg font-semibold text-[var(--pf-text)]">Keine passenden Inserate gefunden.</p>
-                  <p className="mt-2 text-sm text-[var(--pf-muted)]">
-                    Passe Suche, Preisbereich, Status oder Kategorie an.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {visibleParts.map((part) => (
-                    <PartCard
-                      key={part.id}
-                      part={part}
-                      onOpenDetails={setSelectedPart}
-                      isOwn={part.sellerUid === user.uid}
-                      isFavorite={favoritePartIds.includes(part.id)}
-                      onToggleFavorite={onToggleFavorite}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
+            <section>{renderResults()}</section>
+          </div>
+        </div>
+
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[color:var(--pf-border)] bg-[var(--pf-surface)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl xl:hidden">
+          <div className="mx-auto flex max-w-7xl gap-2 rounded-[1.5rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface)] p-2 shadow-[0_-16px_48px_rgba(0,0,0,0.32)]">
+            <MobileNavButton active={mobileSection === 'list'} label="Inserate" badge={visibleParts.length} onClick={() => setMobileSection('list')} />
+            <MobileNavButton
+              active={mobileSection === 'filters'}
+              label="Filter"
+              badge={activeFilterCount || undefined}
+              onClick={() => setMobileSection('filters')}
+            />
+            <MobileNavButton
+              active={mobileSection === 'categories'}
+              label="Kategorien"
+              badge={selectedCategory === 'Alle' ? undefined : '1'}
+              onClick={() => setMobileSection('categories')}
+            />
+            <MobileNavButton
+              active={mobileSection === 'sell'}
+              label={editingPart ? 'Bearbeiten' : 'Inserat'}
+              onClick={() => setMobileSection('sell')}
+            />
           </div>
         </div>
       </div>
@@ -373,6 +550,7 @@ export default function Marketplace({
           onEditPart={(part) => {
             onEditPart(part);
             setSelectedPart(null);
+            setMobileSection('sell');
           }}
           onDeletePart={async (part) => {
             await onDeletePart(part);
