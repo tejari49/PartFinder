@@ -219,14 +219,6 @@ export default function Marketplace({
     user.uid,
   ]);
 
-  const myPartsCount = useMemo(
-    () => parts.filter((part) => part.sellerUid === user.uid).length,
-    [parts, user.uid],
-  );
-  const soldCount = useMemo(
-    () => parts.filter((part) => (part.status || 'active') === 'sold').length,
-    [parts],
-  );
   const activeFilterCount = useMemo(() => {
     let count = 0;
 
