@@ -39,6 +39,10 @@ const text = {
     subtitle: 'Compact, filtered, and focused on auto parts. Preview first, details on click.',
     dashboard: 'Dashboard',
     signOut: 'Sign out',
+    installTitle: 'Install app',
+    installHint: 'Install PartFinder for quicker launch and app-like usage.',
+    installAction: 'Install',
+    installLater: 'Later',
     signedInAs: 'Signed in as',
     listings: 'Listings',
     mine: 'Mine',
@@ -89,6 +93,10 @@ const text = {
     subtitle: 'Kompakt, gefiltert und direkt auf Autoteile fokussiert. Vorschau zuerst, Details nach Klick.',
     dashboard: 'Dashboard',
     signOut: 'Logout',
+    installTitle: 'App installieren',
+    installHint: 'Installiere PartFinder fuer schnelleren Start und App-Feeling.',
+    installAction: 'Installieren',
+    installLater: 'Spaeter',
     signedInAs: 'Eingeloggt als',
     listings: 'Inserate',
     mine: 'Eigene',
@@ -292,6 +300,9 @@ export default function Marketplace({
   sellerTrustByUid,
   onSubmitRating,
   onSubmitReport,
+  installAvailable,
+  onInstallApp,
+  onDismissInstallHint,
 }) {
   const t = language === 'de' ? text.de : text.en;
   const [selectedPart, setSelectedPart] = useState(null);
@@ -559,6 +570,21 @@ export default function Marketplace({
             </div>
 
             <div className="mt-4 space-y-3">
+              {installAvailable ? (
+                <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3">
+                  <p className="text-sm font-semibold text-[var(--pf-text)]">{t.installTitle}</p>
+                  <p className="mt-1 text-sm text-[var(--pf-muted)]">{t.installHint}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={onInstallApp} className="pf-button-primary px-4 py-2 text-sm">
+                      {t.installAction}
+                    </button>
+                    <button type="button" onClick={onDismissInstallHint} className="pf-button-secondary px-4 py-2 text-sm">
+                      {t.installLater}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3 text-sm text-[var(--pf-muted)]">
                 {t.signedInAs}{' '}
                 <span className="font-semibold text-[var(--pf-text)]">

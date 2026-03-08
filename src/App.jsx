@@ -32,6 +32,7 @@ import { buildPartSearchText } from './utils/searchIndex';
 const ALLOWED_PART_STATUSES = ['active', 'reserved', 'sold'];
 const REPORT_REASONS = ['spam', 'duplicate', 'fraud', 'offensive', 'wrong_category', 'other'];
 const LANGUAGE_KEY = 'partfinder-language';
+const INSTALL_DISMISS_KEY = 'partfinder-install-dismissed';
 
 const toastTranslations = {
   'User profile could not be initialized.': 'Benutzerprofil konnte nicht initialisiert werden.',
@@ -95,6 +96,8 @@ const toastTranslations = {
   'Chat could not be started.': 'Chat konnte nicht gestartet werden.',
   'Signed out successfully.': 'Erfolgreich abgemeldet.',
   'Sign out failed.': 'Abmeldung fehlgeschlagen.',
+  'Install prompt is not available right now.': 'Installationshinweis ist aktuell nicht verfuegbar.',
+  'App installed successfully.': 'App wurde erfolgreich installiert.',
 };
 
 const getChatIdForPart = (partId, firstUid, secondUid) => {
@@ -154,6 +157,11 @@ export default function App() {
   const [activeView, setActiveView] = useState('marketplace');
   const [editingPartId, setEditingPartId] = useState('');
   const [toasts, setToasts] = useState([]);
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
+  const [installHintDismissed, setInstallHintDismissed] = useState(() => {
+    const stored = localStorage.getItem(INSTALL_DISMISS_KEY);
+    return stored === '1';
+  });
 
   const pushToast = useCallback((message, type = 'info') => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -175,6 +183,28 @@ export default function App() {
     document.documentElement.setAttribute('lang', language);
     localStorage.setItem(LANGUAGE_KEY, language);
   }, [language]);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event);
+    };
+
+    const handleAppInstalled = () => {
+      setInstallPromptEvent(null);
+      setInstallHintDismissed(true);
+      localStorage.setItem(INSTALL_DISMISS_KEY, '1');
+      pushToast('App installed successfully.', 'success');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, [pushToast]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -1028,6 +1058,29 @@ export default function App() {
     }
   };
 
+  const handleInstallApp = useCallback(async () => {
+    if (!installPromptEvent) {
+      pushToast('Install prompt is not available right now.', 'info');
+      return;
+    }
+
+    try {
+      installPromptEvent.prompt();
+      await installPromptEvent.userChoice;
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setInstallPromptEvent(null);
+    }
+  }, [installPromptEvent, pushToast]);
+
+  const handleDismissInstallHint = useCallback(() => {
+    setInstallHintDismissed(true);
+    localStorage.setItem(INSTALL_DISMISS_KEY, '1');
+  }, []);
+
+  const installAvailable = Boolean(installPromptEvent) && !installHintDismissed;
+
   return (
     <div className="pf-page">
       {authLoading ? (
@@ -1112,6 +1165,9 @@ export default function App() {
             sellerTrustByUid={sellerTrustByUid}
             onSubmitRating={handleSubmitRating}
             onSubmitReport={handleSubmitReport}
+            installAvailable={installAvailable}
+            onInstallApp={handleInstallApp}
+            onDismissInstallHint={handleDismissInstallHint}
           />
         )
       ) : (
