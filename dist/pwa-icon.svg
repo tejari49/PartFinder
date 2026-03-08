@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PartFinder Icon">
+  <defs>
+    <linearGradient id="pf-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#082f49" />
+    </linearGradient>
+    <linearGradient id="pf-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#0ea5e9" />
+    </linearGradient>
+    <filter id="pf-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-opacity="0.28" flood-color="#0a0a0a" />
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#pf-bg)" />
+  <rect x="36" y="36" width="440" height="440" rx="92" fill="none" stroke="rgba(148,163,184,0.24)" stroke-width="2" />
+
+  <g filter="url(#pf-shadow)">
+    <circle cx="236" cy="256" r="96" fill="none" stroke="url(#pf-accent)" stroke-width="34" />
+    <circle cx="236" cy="256" r="42" fill="none" stroke="#f8fafc" stroke-width="16" />
+    <path d="M308 328l72 72" stroke="url(#pf-accent)" stroke-width="30" stroke-linecap="round" />
+  </g>
+
+  <g fill="#f8fafc">
+    <path d="M155 219l20-47c6-14 20-23 35-23h67c16 0 30 9 35 23l20 47" opacity="0.95" />
+    <path d="M170 219h132c13 0 24 11 24 24v14c0 8-6 14-14 14h-10c-8 0-14-6-14-14v-5H184v5c0 8-6 14-14 14h-10c-8 0-14-6-14-14v-14c0-13 11-24 24-24z" opacity="0.95" />
+    <circle cx="192" cy="246" r="11" />
+    <circle cx="280" cy="246" r="11" />
+  </g>
+</svg>

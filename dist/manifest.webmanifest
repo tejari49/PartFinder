@@ -1,0 +1,24 @@
+{
+  "name": "PartFinder",
+  "short_name": "PartFinder",
+  "description": "Auto parts marketplace as a Progressive Web App",
+  "start_url": "/PartFinder/",
+  "scope": "/PartFinder/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "/PartFinder/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/PartFinder/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

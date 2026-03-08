@@ -27,6 +27,7 @@ import Marketplace from './components/Marketplace';
 import Toast from './components/Toast';
 import { validateCategoryInput } from './utils/categoryValidation';
 import { getFallbackDisplayName, normalizeCategoryName, slugify } from './utils/format';
+import { buildPartSearchText } from './utils/searchIndex';
 
 const ALLOWED_PART_STATUSES = ['active', 'reserved', 'sold'];
 const REPORT_REASONS = ['spam', 'duplicate', 'fraud', 'offensive', 'wrong_category', 'other'];
@@ -619,6 +620,17 @@ export default function App() {
         vehicleGeneration: toOptionalTrimmed(payload.vehicleGeneration),
         yearFrom: yearFrom || null,
         yearTo: yearTo || null,
+        searchIndexText: buildPartSearchText({
+          category: normalizedCategory,
+          brand: payload.brand.trim(),
+          model: payload.model.trim(),
+          title: payload.title.trim(),
+          description: payload.description.trim(),
+          oemNumber: toOptionalUpper(payload.oemNumber),
+          engineCode: toOptionalUpper(payload.engineCode),
+          vehicleGeneration: toOptionalTrimmed(payload.vehicleGeneration),
+          location: payload.location?.trim() || '',
+        }),
         updatedAt: serverTimestamp(),
       };
 

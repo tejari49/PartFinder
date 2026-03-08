@@ -4,6 +4,7 @@ import LanguageSwitcher from './LanguageSwitcher';
 import PartDetailModal from './PartDetailModal';
 import ThemeSwitcher from './ThemeSwitcher';
 import { currencyFormatter } from '../utils/format';
+import { buildPartSearchText, matchesSearchQuery } from '../utils/searchIndex';
 
 const text = {
   en: {
@@ -311,23 +312,14 @@ export default function Marketplace({
   }, [editingPart]);
 
   const visibleParts = useMemo(() => {
-    const needle = searchTerm.trim().toLowerCase();
+    const needle = searchTerm.trim();
     const min = minPrice === '' ? null : Number(minPrice);
     const max = maxPrice === '' ? null : Number(maxPrice);
 
     const next = parts.filter((part) => {
       const price = Number(part.price || 0);
-      const matchesSearch =
-        needle.length === 0 ||
-        [
-          part.brand,
-          part.model,
-          part.title,
-          part.oemNumber,
-          part.engineCode,
-          part.vehicleGeneration,
-          part.description,
-        ].some((value) => value?.toLowerCase().includes(needle));
+      const searchText = part.searchIndexText || buildPartSearchText(part);
+      const matchesSearch = matchesSearchQuery(searchText, needle);
       const matchesFavorites = !showOnlyFavorites || favoritePartIds.includes(part.id);
       const matchesScope = listingScope !== 'mine' || part.sellerUid === user.uid;
       const matchesStatus = statusFilter === 'all' || (part.status || 'active') === statusFilter;
