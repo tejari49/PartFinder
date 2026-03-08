@@ -72,7 +72,7 @@ export default function Auth({ language = 'en', onLanguageChange, onToast, theme
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const logoSrc = useMemo(() => `${import.meta.env.BASE_URL}partfinder-logo.svg`, []);
+  const logoSrc = useMemo(() => `${import.meta.env.BASE_URL}partfinder-icon.png`, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -110,7 +110,11 @@ export default function Auth({ language = 'en', onLanguageChange, onToast, theme
 
       <div className="w-full max-w-md rounded-[2rem] pf-card p-5 sm:p-6">
         <div className="mb-6">
-          <img src={logoSrc} alt="PartFinder" className="h-auto w-full max-w-[18rem]" />
+          <img
+            src={logoSrc}
+            alt="PartFinder"
+            className="h-24 w-24 rounded-[1.4rem] border border-[color:var(--pf-border)] object-cover shadow-xl"
+          />
           <h1 className="mt-3 text-2xl font-black tracking-tight text-[var(--pf-text)]">{t.title}</h1>
           <p className="mt-2 text-sm leading-6 text-[var(--pf-muted)]">{t.subtitle}</p>
         </div>

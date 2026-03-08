@@ -302,7 +302,7 @@ export default function Marketplace({
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [mobileSection, setMobileSection] = useState('list');
-  const logoSrc = `${import.meta.env.BASE_URL}partfinder-logo.svg`;
+  const logoSrc = `${import.meta.env.BASE_URL}partfinder-icon.png`;
 
   useEffect(() => {
     if (editingPart) {
@@ -534,7 +534,11 @@ export default function Marketplace({
                 <div className="pf-hero-badge px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em]">
                   {t.secure}
                 </div>
-                <img src={logoSrc} alt="PartFinder" className="mt-3 h-auto w-full max-w-[15rem] sm:max-w-[18rem]" />
+                <img
+                  src={logoSrc}
+                  alt="PartFinder"
+                  className="mt-3 h-16 w-16 rounded-2xl border border-[color:var(--pf-border)] object-cover shadow-lg"
+                />
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--pf-muted)]">{t.subtitle}</p>
               </div>
 
