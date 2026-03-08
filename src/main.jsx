@@ -11,7 +11,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker
       .register(`${import.meta.env.BASE_URL}sw.js`)
       .catch((error) => {
-        console.error('Service Worker Registrierung fehlgeschlagen:', error);
+        console.error('Service worker registration failed:', error);
       });
   });
 }

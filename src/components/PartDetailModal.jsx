@@ -1,29 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import Avatar from './Avatar';
 import ModalShell from './ModalShell';
-import { currencyFormatter, formatDateTime, normalizePhone } from '../utils/format';
+import {
+  currencyFormatter,
+  formatDateTime,
+  normalizeConditionValue,
+  normalizePhone,
+} from '../utils/format';
 
 const reportReasonOptions = [
   { value: 'spam', label: 'Spam' },
-  { value: 'duplicate', label: 'Duplikat' },
-  { value: 'fraud', label: 'Betrug' },
-  { value: 'offensive', label: 'Unangemessen' },
-  { value: 'wrong_category', label: 'Falsche Kategorie' },
-  { value: 'other', label: 'Sonstiges' },
+  { value: 'duplicate', label: 'Duplicate listing' },
+  { value: 'fraud', label: 'Fraud' },
+  { value: 'offensive', label: 'Offensive content' },
+  { value: 'wrong_category', label: 'Wrong category' },
+  { value: 'other', label: 'Other' },
 ];
 
 function deliveryLabel(part) {
   const entries = [];
-  if (part.shippingAvailable) entries.push('Versand');
-  if (part.pickupAvailable !== false) entries.push('Abholung');
-  return entries.length > 0 ? entries.join(' • ') : 'Keine Angabe';
+  if (part.shippingAvailable) entries.push('Shipping');
+  if (part.pickupAvailable !== false) entries.push('Pickup');
+  return entries.length > 0 ? entries.join(' / ') : 'Not specified';
 }
 
 function StatusChip({ status }) {
   if (status === 'sold') {
     return (
       <span className="rounded-full bg-[var(--pf-danger)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
-        Verkauft
+        Sold
       </span>
     );
   }
@@ -31,22 +36,22 @@ function StatusChip({ status }) {
   if (status === 'reserved') {
     return (
       <span className="rounded-full bg-amber-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-amber-300">
-        Reserviert
+        Reserved
       </span>
     );
   }
 
   return (
     <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-400">
-      Aktiv
+      Active
     </span>
   );
 }
 
 function compatibilityRange(from, to) {
-  if (!from && !to) return 'Keine Angabe';
+  if (!from && !to) return 'Not specified';
   if (from && to) return `${from} - ${to}`;
-  return from ? `ab ${from}` : `bis ${to}`;
+  return from ? `from ${from}` : `until ${to}`;
 }
 
 export default function PartDetailModal({
@@ -84,10 +89,10 @@ export default function PartDetailModal({
     setActiveImage(images[0] || '');
   }, [images, part.id]);
 
-  const sellerName = sellerProfile?.displayName || part.sellerDisplayName || part.sellerEmail || 'Verkaeufer';
+  const sellerName = sellerProfile?.displayName || part.sellerDisplayName || part.sellerEmail || 'Seller';
   const whatsappNumber = normalizePhone(sellerProfile?.whatsappNumber || '');
   const whatsappLink = whatsappNumber
-    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hallo, ich interessiere mich fuer dein Inserat "${part.title}".`)}`
+    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hi, I am interested in your listing "${part.title}".`)}`
     : '';
   const ownPart = currentUser?.uid === part.sellerUid;
   const status = part.status || 'active';
@@ -133,7 +138,7 @@ export default function PartDetailModal({
   };
 
   return (
-    <ModalShell title="Inserat Details" onClose={onClose} maxWidth="max-w-6xl">
+    <ModalShell title="Listing details" onClose={onClose} maxWidth="max-w-6xl">
       <div className="grid gap-6 p-4 sm:p-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div>
           <div className="overflow-hidden rounded-[1.75rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)]">
@@ -141,7 +146,7 @@ export default function PartDetailModal({
               <img src={activeImage} alt={part.title} className="h-[18rem] w-full object-cover sm:h-[24rem]" />
             ) : (
               <div className="flex h-[18rem] items-center justify-center text-[var(--pf-muted)] sm:h-[24rem]">
-                Kein Bild
+                No image
               </div>
             )}
           </div>
@@ -173,53 +178,53 @@ export default function PartDetailModal({
                   <StatusChip status={status} />
                 </div>
                 <h2 className="mt-2 text-2xl font-black text-[var(--pf-text)] sm:text-3xl">{part.title}</h2>
-                <p className="mt-2 text-sm text-[var(--pf-muted)]">{part.brand} • {part.model}</p>
+                <p className="mt-2 text-sm text-[var(--pf-muted)]">{part.brand} / {part.model}</p>
               </div>
               <div className="rounded-[1.25rem] bg-[var(--pf-primary)] px-4 py-3 text-[#04111a]">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em]">Preis</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em]">Price</p>
                 <p className="mt-1 text-xl font-black">{currencyFormatter.format(Number(part.price || 0))}</p>
               </div>
             </div>
 
             {isSold ? (
               <div className="mt-4 rounded-[1.1rem] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-                Dieses Teil ist aktuell als verkauft markiert.
+                This item is currently marked as sold.
               </div>
             ) : null}
 
             {isReserved ? (
               <div className="mt-4 rounded-[1.1rem] border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-                Dieses Teil ist aktuell reserviert.
+                This item is currently reserved.
               </div>
             ) : null}
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">Zustand</p>
-                <p className="mt-1 font-semibold text-[var(--pf-text)]">{part.condition}</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">Condition</p>
+                <p className="mt-1 font-semibold text-[var(--pf-text)]">{normalizeConditionValue(part.condition)}</p>
               </div>
               <div className="rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">Standort</p>
-                <p className="mt-1 font-semibold text-[var(--pf-text)]">{part.location || 'Keine Angabe'}</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">Location</p>
+                <p className="mt-1 font-semibold text-[var(--pf-text)]">{part.location || 'Not specified'}</p>
               </div>
               <div className="rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3 sm:col-span-2">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">Versand / Abholung</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">Shipping / Pickup</p>
                 <p className="mt-1 font-semibold text-[var(--pf-text)]">{deliveryLabel(part)}</p>
               </div>
             </div>
 
             <div className="mt-4 rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">Kompatibilitaet</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">Compatibility</p>
               <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-                <p className="text-[var(--pf-muted)]">OEM: <span className="font-semibold text-[var(--pf-text)]">{part.oemNumber || 'Keine Angabe'}</span></p>
-                <p className="text-[var(--pf-muted)]">Motorcode: <span className="font-semibold text-[var(--pf-text)]">{part.engineCode || 'Keine Angabe'}</span></p>
-                <p className="text-[var(--pf-muted)]">Baujahr: <span className="font-semibold text-[var(--pf-text)]">{compatibilityRange(part.yearFrom, part.yearTo)}</span></p>
-                <p className="text-[var(--pf-muted)]">Generation: <span className="font-semibold text-[var(--pf-text)]">{part.vehicleGeneration || 'Keine Angabe'}</span></p>
+                <p className="text-[var(--pf-muted)]">OEM: <span className="font-semibold text-[var(--pf-text)]">{part.oemNumber || 'Not specified'}</span></p>
+                <p className="text-[var(--pf-muted)]">Engine code: <span className="font-semibold text-[var(--pf-text)]">{part.engineCode || 'Not specified'}</span></p>
+                <p className="text-[var(--pf-muted)]">Years: <span className="font-semibold text-[var(--pf-text)]">{compatibilityRange(part.yearFrom, part.yearTo)}</span></p>
+                <p className="text-[var(--pf-muted)]">Generation: <span className="font-semibold text-[var(--pf-text)]">{part.vehicleGeneration || 'Not specified'}</span></p>
               </div>
             </div>
 
             <div className="mt-4 rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">Beschreibung</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">Description</p>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--pf-text)]">{part.description}</p>
             </div>
           </div>
@@ -228,24 +233,24 @@ export default function PartDetailModal({
             <div className="flex items-center gap-3">
               <Avatar name={sellerName} src={sellerProfile?.avatarBase64 || ''} size="md" />
               <div className="min-w-0">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-primary)]">Verkaeufer</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-primary)]">Seller</p>
                 <h3 className="mt-1 truncate text-lg font-bold text-[var(--pf-text)]">{sellerName}</h3>
-                <p className="mt-1 text-sm text-[var(--pf-muted)]">Inserat erstellt: {formatDateTime(part.createdAt)}</p>
+                <p className="mt-1 text-sm text-[var(--pf-muted)]">Created: {formatDateTime(part.createdAt)}</p>
               </div>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--pf-muted)]">
               {sellerTrust?.verified ? (
                 <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 font-semibold text-emerald-300">
-                  Verifiziert
+                  Verified
                 </span>
               ) : null}
               <span>
                 {sellerTrust?.ratingCount
-                  ? `★ ${sellerTrust.ratingAverage.toFixed(1)} (${sellerTrust.ratingCount} Bewertungen)`
-                  : 'Noch keine Bewertungen'}
+                  ? `${sellerTrust.ratingAverage.toFixed(1)} / 5 (${sellerTrust.ratingCount} ratings)`
+                  : 'No ratings yet'}
               </span>
-              <span>{`${sellerTrust?.soldCount || 0} erfolgreiche Verkaeufe`}</span>
+              <span>{`${sellerTrust?.soldCount || 0} successful sales`}</span>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-3">
@@ -262,85 +267,85 @@ export default function PartDetailModal({
                     disabled={!canContactSeller}
                     className="pf-button-secondary px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    In-App Chat
+                    In-app chat
                   </button>
                   <button type="button" onClick={() => onToggleFavorite(part)} className="pf-button-secondary px-4 py-3">
-                    {isFavorite ? '★ Favorit' : '☆ Merken'}
+                    {isFavorite ? 'Saved' : 'Save'}
                   </button>
                   <button type="button" onClick={() => setShowRatingForm((prev) => !prev)} className="pf-button-secondary px-4 py-3">
-                    Bewerten
+                    Rate seller
                   </button>
                   <button type="button" onClick={() => setShowReportForm((prev) => !prev)} className="pf-button-danger px-4 py-3">
-                    Melden
+                    Report listing
                   </button>
                 </>
               ) : (
                 <>
                   <button type="button" onClick={() => onEditPart(part)} className="pf-button-secondary px-4 py-3">
-                    Bearbeiten
+                    Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => onSetPartStatus(part, 'active')}
                     className="pf-button-secondary px-4 py-3"
                   >
-                    Aktiv
+                    Set active
                   </button>
                   <button
                     type="button"
                     onClick={() => onSetPartStatus(part, 'reserved')}
                     className="pf-button-secondary px-4 py-3"
                   >
-                    Reservieren
+                    Set reserved
                   </button>
                   <button
                     type="button"
                     onClick={() => onSetPartStatus(part, 'sold')}
                     className="pf-button-secondary px-4 py-3"
                   >
-                    Als verkauft
+                    Mark sold
                   </button>
                   <button type="button" onClick={() => onDeletePart(part)} className="pf-button-danger px-4 py-3">
-                    Loeschen
+                    Delete
                   </button>
                 </>
               )}
             </div>
 
             {!ownPart && !whatsappLink && canContactSeller ? (
-              <p className="mt-3 text-sm text-[var(--pf-muted)]">Keine WhatsApp-Nummer hinterlegt. Nutze den In-App Chat.</p>
+              <p className="mt-3 text-sm text-[var(--pf-muted)]">No WhatsApp number set. Use in-app chat instead.</p>
             ) : null}
 
             {!ownPart && showRatingForm ? (
               <form onSubmit={handleRatingSubmit} className="mt-4 space-y-3 rounded-[1.1rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
-                <p className="text-sm font-semibold text-[var(--pf-text)]">Verkaeufer bewerten</p>
+                <p className="text-sm font-semibold text-[var(--pf-text)]">Rate this seller</p>
                 <select
                   value={ratingValue}
                   onChange={(event) => setRatingValue(event.target.value)}
                   className="pf-select px-4 py-3"
                 >
-                  <option value="5">5 Sterne</option>
-                  <option value="4">4 Sterne</option>
-                  <option value="3">3 Sterne</option>
-                  <option value="2">2 Sterne</option>
-                  <option value="1">1 Stern</option>
+                  <option value="5">5 stars</option>
+                  <option value="4">4 stars</option>
+                  <option value="3">3 stars</option>
+                  <option value="2">2 stars</option>
+                  <option value="1">1 star</option>
                 </select>
                 <textarea
                   rows="3"
                   value={ratingComment}
                   onChange={(event) => setRatingComment(event.target.value)}
-                  placeholder="Optionaler Kommentar..."
+                  placeholder="Optional comment..."
                   className="pf-textarea px-4 py-3"
                 />
                 <button type="submit" disabled={ratingSaving} className="pf-button-primary px-4 py-3 disabled:opacity-60">
-                  {ratingSaving ? 'Speichert...' : 'Bewertung senden'}
+                  {ratingSaving ? 'Saving...' : 'Submit rating'}
                 </button>
               </form>
             ) : null}
 
             {!ownPart && showReportForm ? (
               <form onSubmit={handleReportSubmit} className="mt-4 space-y-3 rounded-[1.1rem] border border-rose-500/30 bg-rose-500/10 p-4">
-                <p className="text-sm font-semibold text-rose-200">Inserat melden</p>
+                <p className="text-sm font-semibold text-rose-200">Report this listing</p>
                 <select
                   value={reportReason}
                   onChange={(event) => setReportReason(event.target.value)}
@@ -356,11 +361,11 @@ export default function PartDetailModal({
                   rows="3"
                   value={reportDetails}
                   onChange={(event) => setReportDetails(event.target.value)}
-                  placeholder="Details zur Meldung..."
+                  placeholder="Details for moderation..."
                   className="pf-textarea px-4 py-3"
                 />
                 <button type="submit" disabled={reportSaving} className="pf-button-danger px-4 py-3 disabled:opacity-60">
-                  {reportSaving ? 'Sendet...' : 'Meldung senden'}
+                  {reportSaving ? 'Sending...' : 'Submit report'}
                 </button>
               </form>
             ) : null}

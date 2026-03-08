@@ -26,7 +26,7 @@ export const resizeImageToBase64 = (
         canvas.height = height;
 
         if (!context) {
-          reject(new Error('Canvas-Kontext konnte nicht erstellt werden.'));
+          reject(new Error('Canvas context could not be created.'));
           return;
         }
 
@@ -34,10 +34,10 @@ export const resizeImageToBase64 = (
         resolve(canvas.toDataURL(mimeType, quality));
       };
 
-      image.onerror = () => reject(new Error('Bild konnte nicht geladen werden.'));
+      image.onerror = () => reject(new Error('Image could not be loaded.'));
       image.src = reader.result;
     };
 
-    reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+    reader.onerror = () => reject(new Error('File could not be read.'));
     reader.readAsDataURL(file);
   });

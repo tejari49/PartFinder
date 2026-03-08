@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   EmailAuthProvider,
   onAuthStateChanged,
@@ -79,7 +79,7 @@ export default function App() {
   const [partsLoading, setPartsLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [reportsLoading, setReportsLoading] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('Alle');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeView, setActiveView] = useState('marketplace');
   const [editingPartId, setEditingPartId] = useState('');
   const [toasts, setToasts] = useState([]);
@@ -118,7 +118,7 @@ export default function App() {
       setRatings([]);
       setReports([]);
       setSelectedChatId('');
-      setSelectedCategory('Alle');
+      setSelectedCategory('All');
       setActiveView('marketplace');
       setEditingPartId('');
       setPartsLoading(false);
@@ -142,7 +142,7 @@ export default function App() {
       { merge: true },
     ).catch((error) => {
       console.error(error);
-      pushToast('Benutzerprofil konnte nicht initialisiert werden.', 'error');
+      pushToast('User profile could not be initialized.', 'error');
     });
 
     return undefined;
@@ -166,7 +166,7 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Kategorien konnten nicht geladen werden.', 'error');
+        pushToast('Categories could not be loaded.', 'error');
         setCategoriesLoading(false);
       },
     );
@@ -196,7 +196,7 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Teile konnten nicht geladen werden.', 'error');
+        pushToast('Parts could not be loaded.', 'error');
         setPartsLoading(false);
       },
     );
@@ -227,7 +227,7 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Benutzerprofile konnten nicht geladen werden.', 'error');
+        pushToast('User profiles could not be loaded.', 'error');
       },
     );
 
@@ -253,7 +253,7 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Chats konnten nicht geladen werden.', 'error');
+        pushToast('Chats could not be loaded.', 'error');
       },
     );
 
@@ -278,7 +278,7 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Favoriten konnten nicht geladen werden.', 'error');
+        pushToast('Favorites could not be loaded.', 'error');
       },
     );
 
@@ -303,7 +303,7 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Bewertungen konnten nicht geladen werden.', 'error');
+        pushToast('Ratings could not be loaded.', 'error');
       },
     );
 
@@ -336,7 +336,7 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Meldungen konnten nicht geladen werden.', 'error');
+        pushToast('Reports could not be loaded.', 'error');
         setReportsLoading(false);
       },
     );
@@ -356,7 +356,7 @@ export default function App() {
   );
 
   const filteredParts = useMemo(() => {
-    if (selectedCategory === 'Alle') {
+    if (selectedCategory === 'All') {
       return parts;
     }
 
@@ -451,7 +451,7 @@ export default function App() {
 
   const handleUpsertPart = async (payload, existingPart = null) => {
     if (!user) {
-      pushToast('Bitte zuerst anmelden.', 'error');
+      pushToast('Please sign in first.', 'error');
       return;
     }
 
@@ -468,27 +468,27 @@ export default function App() {
     const yearTo = toOptionalYear(payload.yearTo);
 
     if (!categorySlug) {
-      pushToast('Bitte eine gueltige Kategorie angeben.', 'error');
+      pushToast('Please enter a valid category.', 'error');
       return;
     }
 
     if (imagesBase64.length === 0) {
-      pushToast('Mindestens ein Bild ist erforderlich.', 'error');
+      pushToast('At least one image is required.', 'error');
       return;
     }
 
     if (yearFrom && (yearFrom < 1900 || yearFrom > 2100)) {
-      pushToast('Baujahr-von muss zwischen 1900 und 2100 liegen.', 'error');
+      pushToast('Year-from must be between 1900 and 2100.', 'error');
       return;
     }
 
     if (yearTo && (yearTo < 1900 || yearTo > 2100)) {
-      pushToast('Baujahr-bis muss zwischen 1900 und 2100 liegen.', 'error');
+      pushToast('Year-to must be between 1900 and 2100.', 'error');
       return;
     }
 
     if (yearFrom && yearTo && yearFrom > yearTo) {
-      pushToast('Baujahr-von darf nicht groesser als Baujahr-bis sein.', 'error');
+      pushToast('Year-from cannot be greater than year-to.', 'error');
       return;
     }
 
@@ -549,7 +549,7 @@ export default function App() {
       if (existingPart?.id) {
         await updateDoc(doc(db, 'parts', existingPart.id), commonFields);
         setEditingPartId('');
-        pushToast('Inserat wurde aktualisiert.', 'success');
+        pushToast('Listing updated.', 'success');
       } else {
         await addDoc(collection(db, 'parts'), {
           ...commonFields,
@@ -559,24 +559,24 @@ export default function App() {
           reservedAt: null,
           createdAt: serverTimestamp(),
         });
-        pushToast('Autoteil wurde erfolgreich veroeffentlicht.', 'success');
+        pushToast('Part listed successfully.', 'success');
       }
     } catch (error) {
       console.error(error);
-      pushToast('Speichern fehlgeschlagen. Pruefe Firestore-Regeln und Indexe.', 'error');
+      pushToast('Save failed. Check Firestore rules and indexes.', 'error');
       throw error;
     }
   };
 
   const handleEditPart = (part) => {
     if (!user || part.sellerUid !== user.uid) {
-      pushToast('Nur eigene Inserate koennen bearbeitet werden.', 'error');
+      pushToast('Only your own listings can be edited.', 'error');
       return;
     }
 
     setEditingPartId(part.id);
     setActiveView('marketplace');
-    pushToast('Inserat im Bearbeitungsmodus geoeffnet.', 'info');
+    pushToast('Listing opened in edit mode.', 'info');
   };
 
   const handleCancelEdit = () => {
@@ -585,7 +585,7 @@ export default function App() {
 
   const handleDeletePart = async (part) => {
     if (!user || part.sellerUid !== user.uid) {
-      pushToast('Nur eigene Inserate koennen geloescht werden.', 'error');
+      pushToast('Only your own listings can be deleted.', 'error');
       return;
     }
 
@@ -594,22 +594,22 @@ export default function App() {
       if (editingPartId === part.id) {
         setEditingPartId('');
       }
-      pushToast('Inserat wurde geloescht.', 'success');
+      pushToast('Listing deleted.', 'success');
     } catch (error) {
       console.error(error);
-      pushToast('Inserat konnte nicht geloescht werden.', 'error');
+      pushToast('Listing could not be deleted.', 'error');
       throw error;
     }
   };
 
   const handleSetPartStatus = async (part, nextStatus, options = {}) => {
     if (!user || part.sellerUid !== user.uid) {
-      pushToast('Nur eigene Inserate koennen geaendert werden.', 'error');
+      pushToast('Only your own listings can be changed.', 'error');
       return;
     }
 
     if (!ALLOWED_PART_STATUSES.includes(nextStatus)) {
-      pushToast('Unbekannter Status.', 'error');
+      pushToast('Unknown status.', 'error');
       return;
     }
 
@@ -636,21 +636,21 @@ export default function App() {
       await updateDoc(doc(db, 'parts', part.id), nextPayload);
 
       if (nextStatus === 'sold') {
-        pushToast('Inserat als verkauft markiert.', 'success');
+        pushToast('Listing marked as sold.', 'success');
       } else if (nextStatus === 'reserved') {
-        pushToast('Inserat wurde reserviert.', 'success');
+        pushToast('Listing reserved.', 'success');
       } else {
-        pushToast('Inserat wieder aktiv geschaltet.', 'success');
+        pushToast('Listing set back to active.', 'success');
       }
     } catch (error) {
       console.error(error);
-      pushToast('Status konnte nicht geaendert werden.', 'error');
+      pushToast('Status could not be changed.', 'error');
     }
   };
 
   const handleToggleFavorite = async (part) => {
     if (!user) {
-      pushToast('Bitte zuerst anmelden.', 'error');
+      pushToast('Please sign in first.', 'error');
       return;
     }
 
@@ -660,7 +660,7 @@ export default function App() {
     try {
       if (exists) {
         await deleteDoc(doc(db, 'favorites', favoriteId));
-        pushToast('Aus der Merkliste entfernt.', 'success');
+        pushToast('Removed from favorites.', 'success');
       } else {
         await setDoc(doc(db, 'favorites', favoriteId), {
           userUid: user.uid,
@@ -668,11 +668,11 @@ export default function App() {
           sellerUid: part.sellerUid,
           createdAt: serverTimestamp(),
         });
-        pushToast('Zur Merkliste hinzugefuegt.', 'success');
+        pushToast('Added to favorites.', 'success');
       }
     } catch (error) {
       console.error(error);
-      pushToast('Merkliste konnte nicht aktualisiert werden.', 'error');
+      pushToast('Favorites could not be updated.', 'error');
     }
   };
 
@@ -690,7 +690,7 @@ export default function App() {
     const trimmedName = displayName.trim();
 
     if (!trimmedName) {
-      pushToast('Bitte einen gueltigen Anzeigenamen eingeben.', 'error');
+      pushToast('Please enter a valid display name.', 'error');
       throw new Error('invalid-display-name');
     }
 
@@ -715,17 +715,17 @@ export default function App() {
       );
 
       setTheme(themePreference || theme);
-      pushToast('Profil wurde aktualisiert.', 'success');
+      pushToast('Profile updated.', 'success');
     } catch (error) {
       console.error(error);
-      pushToast('Profil konnte nicht gespeichert werden.', 'error');
+      pushToast('Profile could not be saved.', 'error');
       throw error;
     }
   };
 
   const handleChangePassword = async ({ currentPassword, newPassword }) => {
     if (!auth.currentUser?.email) {
-      pushToast('Passwortaenderung ist fuer dieses Konto nicht verfuegbar.', 'error');
+      pushToast('Password change is not available for this account.', 'error');
       throw new Error('missing-email');
     }
 
@@ -733,16 +733,16 @@ export default function App() {
       const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
       await reauthenticateWithCredential(auth.currentUser, credential);
       await updatePassword(auth.currentUser, newPassword);
-      pushToast('Passwort erfolgreich geaendert.', 'success');
+      pushToast('Password changed successfully.', 'success');
     } catch (error) {
       console.error(error);
 
       if (error.code === 'auth/invalid-credential') {
-        pushToast('Das aktuelle Passwort ist falsch.', 'error');
+        pushToast('Current password is incorrect.', 'error');
       } else if (error.code === 'auth/weak-password') {
-        pushToast('Das neue Passwort ist zu schwach.', 'error');
+        pushToast('New password is too weak.', 'error');
       } else {
-        pushToast('Passwort konnte nicht geaendert werden.', 'error');
+        pushToast('Password could not be changed.', 'error');
       }
 
       throw error;
@@ -751,25 +751,25 @@ export default function App() {
 
   const handleSubmitRating = async (part, payload) => {
     if (!user) {
-      pushToast('Bitte zuerst anmelden.', 'error');
+      pushToast('Please sign in first.', 'error');
       return;
     }
 
     if (part.sellerUid === user.uid) {
-      pushToast('Eigene Inserate koennen nicht bewertet werden.', 'error');
+      pushToast('You cannot rate your own listings.', 'error');
       return;
     }
 
     const value = Number(payload.rating);
     if (!Number.isFinite(value) || value < 1 || value > 5) {
-      pushToast('Bewertung muss zwischen 1 und 5 Sternen liegen.', 'error');
+      pushToast('Rating must be between 1 and 5 stars.', 'error');
       return;
     }
 
     const ratingId = `${part.id}_${user.uid}`;
     const alreadyRated = ratings.some((rating) => rating.id === ratingId);
     if (alreadyRated) {
-      pushToast('Du hast diesen Verkaeufer fuer das Inserat bereits bewertet.', 'info');
+      pushToast('You already rated this seller for this listing.', 'info');
       return;
     }
 
@@ -780,7 +780,7 @@ export default function App() {
     });
 
     if (!hasChatContact) {
-      pushToast('Bewertungen sind erst nach einem Chatkontakt moeglich.', 'error');
+      pushToast('Ratings are available only after chat contact.', 'error');
       return;
     }
 
@@ -795,27 +795,27 @@ export default function App() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      pushToast('Bewertung wurde gespeichert.', 'success');
+      pushToast('Rating saved.', 'success');
     } catch (error) {
       console.error(error);
-      pushToast('Bewertung konnte nicht gespeichert werden.', 'error');
+      pushToast('Rating could not be saved.', 'error');
       throw error;
     }
   };
 
   const handleSubmitReport = async (part, payload) => {
     if (!user) {
-      pushToast('Bitte zuerst anmelden.', 'error');
+      pushToast('Please sign in first.', 'error');
       return;
     }
 
     if (part.sellerUid === user.uid) {
-      pushToast('Eigene Inserate koennen nicht gemeldet werden.', 'error');
+      pushToast('You cannot report your own listings.', 'error');
       return;
     }
 
     if (!REPORT_REASONS.includes(payload.reason)) {
-      pushToast('Bitte einen gueltigen Meldungsgrund waehlen.', 'error');
+      pushToast('Please select a valid report reason.', 'error');
       return;
     }
 
@@ -833,22 +833,22 @@ export default function App() {
         status: 'open',
         createdAt: serverTimestamp(),
       });
-      pushToast('Meldung wurde an die Moderation gesendet.', 'success');
+      pushToast('Report sent to moderation.', 'success');
     } catch (error) {
       console.error(error);
-      pushToast('Meldung konnte nicht gespeichert werden (evtl. bereits gemeldet).', 'error');
+      pushToast('Report could not be saved (possibly already reported).', 'error');
       throw error;
     }
   };
 
   const handleModerateReport = async (report, payload) => {
     if (!user || !isModerator) {
-      pushToast('Nur Moderatoren duerfen Meldungen bearbeiten.', 'error');
+      pushToast('Only moderators can process reports.', 'error');
       return;
     }
 
     if (!['in_review', 'resolved', 'rejected'].includes(payload.status)) {
-      pushToast('Ungueltiger Moderationsstatus.', 'error');
+      pushToast('Invalid moderation status.', 'error');
       return;
     }
 
@@ -859,45 +859,45 @@ export default function App() {
         moderatedByUid: user.uid,
         moderatedAt: serverTimestamp(),
       });
-      pushToast('Meldung wurde aktualisiert.', 'success');
+      pushToast('Report updated.', 'success');
     } catch (error) {
       console.error(error);
-      pushToast('Moderationsupdate fehlgeschlagen.', 'error');
+      pushToast('Moderation update failed.', 'error');
       throw error;
     }
   };
 
   const handleStartChat = async (part) => {
     if (!user) {
-      pushToast('Bitte zuerst anmelden.', 'error');
+      pushToast('Please sign in first.', 'error');
       return;
     }
 
     if (part.sellerUid === user.uid) {
-      pushToast('Fuer dein eigenes Inserat ist kein Chat noetig.', 'info');
+      pushToast('No chat needed for your own listing.', 'info');
       return;
     }
 
     if (part.status === 'sold') {
-      pushToast('Dieses Inserat ist bereits als verkauft markiert.', 'info');
+      pushToast('This listing is already marked as sold.', 'info');
       return;
     }
 
     if (part.status === 'reserved' && part.reservedForUid && part.reservedForUid !== user.uid) {
-      pushToast('Dieses Inserat ist aktuell fuer einen anderen Nutzer reserviert.', 'info');
+      pushToast('This listing is currently reserved for another user.', 'info');
       return;
     }
 
     const sellerProfile = profilesByUid[part.sellerUid];
 
     if (sellerProfile?.chatEnabled === false) {
-      pushToast('Der Verkaeufer hat den In-App Chat deaktiviert.', 'error');
+      pushToast('The seller has disabled in-app chat.', 'error');
       return;
     }
 
     const chatId = getChatIdForPart(part.id, user.uid, part.sellerUid);
     const buyerName = userProfile?.displayName || getFallbackDisplayName(user);
-    const sellerName = sellerProfile?.displayName || part.sellerDisplayName || part.sellerEmail || 'Verkaeufer';
+    const sellerName = sellerProfile?.displayName || part.sellerDisplayName || part.sellerEmail || 'Seller';
 
     try {
       await setDoc(
@@ -923,20 +923,20 @@ export default function App() {
 
       setSelectedChatId(chatId);
       setActiveView('dashboard');
-      pushToast('Chat geoeffnet.', 'success');
+      pushToast('Chat opened.', 'success');
     } catch (error) {
       console.error(error);
-      pushToast('Chat konnte nicht gestartet werden.', 'error');
+      pushToast('Chat could not be started.', 'error');
     }
   };
 
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-      pushToast('Erfolgreich abgemeldet.', 'success');
+      pushToast('Signed out successfully.', 'success');
     } catch (error) {
       console.error(error);
-      pushToast('Abmeldung fehlgeschlagen.', 'error');
+      pushToast('Sign out failed.', 'error');
     }
   };
 
@@ -946,8 +946,8 @@ export default function App() {
         <div className="flex min-h-screen items-center justify-center px-6">
           <div className="w-full max-w-md rounded-[1.75rem] pf-card p-8 text-center">
             <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-[var(--pf-primary-soft)]" />
-            <p className="text-lg font-semibold text-[var(--pf-text)]">Autoteile-Marktplatz laedt...</p>
-            <p className="mt-2 text-sm text-[var(--pf-muted)]">Auth-Status wird geprueft.</p>
+            <p className="text-lg font-semibold text-[var(--pf-text)]">Loading auto parts marketplace...</p>
+            <p className="mt-2 text-sm text-[var(--pf-muted)]">Checking authentication status.</p>
           </div>
         </div>
       ) : user ? (

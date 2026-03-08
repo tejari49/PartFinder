@@ -13,7 +13,7 @@ export default function Avatar({ name, src, size = 'md' }) {
     return (
       <img
         src={src}
-        alt={name || 'Profilbild'}
+        alt={name || 'Profile picture'}
         className={`${classes} rounded-2xl border border-[color:var(--pf-border)] object-cover shadow-lg`}
       />
     );
@@ -22,7 +22,7 @@ export default function Avatar({ name, src, size = 'md' }) {
   return (
     <div
       className={`${classes} flex items-center justify-center rounded-2xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] font-black tracking-[0.18em] text-[var(--pf-text)] shadow-lg`}
-      aria-label={name || 'Profilbild'}
+      aria-label={name || 'Profile picture'}
     >
       {getInitials(name)}
     </div>

@@ -23,7 +23,7 @@ const bannedFragments = [
   'porno',
   'pussy',
   'scheiss',
-  'scheiße',
+  'scheisse',
   'schlampe',
   'sex',
   'spast',
@@ -36,78 +36,64 @@ const bannedFragments = [
 
 const automotiveKeywords = [
   'airbag',
-  'achse',
-  'anlasser',
-  'antenne',
-  'auspuff',
-  'batterie',
-  'blinker',
-  'bremse',
-  'brems',
+  'axle',
+  'starter',
+  'antenna',
+  'exhaust',
+  'battery',
+  'indicator',
+  'brake',
   'cockpit',
-  'dichtung',
+  'gasket',
   'dpf',
-  'drosselklappe',
-  'feder',
-  'felge',
+  'throttle',
+  'spring',
+  'rim',
   'filter',
-  'frontscheibe',
-  'getriebe',
-  'heckklappe',
-  'heckleuchte',
-  'haube',
-  'injektor',
-  'kardan',
-  'katalysator',
-  'kofferraum',
-  'kolben',
-  'kotfluegel',
-  'kotflügel',
-  'kuehler',
-  'kühler',
-  'kupplung',
-  'ladung',
-  'lichtmaschine',
-  'lenkrad',
-  'llk',
-  'motor',
-  'nabe',
-  'oelfilter',
-  'ölfilter',
-  'querlenker',
-  'rad',
-  'reifen',
-  'riemen',
-  'scheinwerfer',
-  'schloss',
-  'schweller',
+  'windshield',
+  'transmission',
+  'tailgate',
+  'headlight',
+  'hood',
+  'injector',
+  'catalyst',
+  'piston',
+  'fender',
+  'radiator',
+  'clutch',
+  'alternator',
+  'steering',
+  'engine',
+  'hub',
+  'control arm',
+  'wheel',
+  'tire',
+  'belt',
+  'lock',
   'sensor',
-  'servo',
-  'sitz',
-  'spiegel',
+  'mirror',
   'spoiler',
-  'stabilisator',
-  'steuergeraet',
-  'steuergerät',
-  'stossdaempfer',
-  'stoßdämpfer',
-  'stossstange',
-  'stoßstange',
+  'stabilizer',
+  'ecu',
   'tank',
-  'tacho',
+  'speedometer',
   'thermostat',
   'turbo',
+  'door',
+  'valve',
+  'water pump',
+  'timing belt',
+  'spark plug',
+  'zundkerze',
+  'zundspule',
   'turbolader',
-  'tuer',
-  'tür',
-  'ventil',
-  'wasserpumpe',
-  'zahnriemen',
-  'zierleiste',
-  'zuendspule',
-  'zündspule',
-  'zündkerze',
-  'zuendkerze',
+  'scheinwerfer',
+  'getriebe',
+  'bremse',
+  'stossstange',
+  'stosstange',
+  'kupplung',
+  'motor',
 ];
 
 const normalize = (value = '') =>
@@ -116,7 +102,7 @@ const normalize = (value = '') =>
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ß/g, 'ss');
+    .replace(/\u00DF/g, 'ss');
 
 export function validateCategoryInput(rawValue, existingCategories = []) {
   const value = rawValue.trim();
@@ -124,7 +110,7 @@ export function validateCategoryInput(rawValue, existingCategories = []) {
   if (!value) {
     return {
       ok: false,
-      reason: 'Bitte eine Kategorie eingeben.',
+      reason: 'Please enter a category.',
       isExisting: false,
     };
   }
@@ -132,15 +118,15 @@ export function validateCategoryInput(rawValue, existingCategories = []) {
   if (value.length < 3 || value.length > 40) {
     return {
       ok: false,
-      reason: 'Kategorie muss zwischen 3 und 40 Zeichen lang sein.',
+      reason: 'Category must be between 3 and 40 characters.',
       isExisting: false,
     };
   }
 
-  if (!/^[A-Za-zÀ-ÖØ-öø-ÿ0-9][A-Za-zÀ-ÖØ-öø-ÿ0-9 +&/.\-]*$/.test(value)) {
+  if (!/^[\p{L}\p{N}][\p{L}\p{N} +&/.\-]*$/u.test(value)) {
     return {
       ok: false,
-      reason: 'Kategorie darf nur Buchstaben, Zahlen, Leerzeichen sowie + - & / . enthalten.',
+      reason: 'Category may only contain letters, numbers, spaces, and + - & / .',
       isExisting: false,
     };
   }
@@ -152,7 +138,7 @@ export function validateCategoryInput(rawValue, existingCategories = []) {
   if (bannedFragments.some((fragment) => normalizedValue.includes(fragment))) {
     return {
       ok: false,
-      reason: 'Kategorie enthält ungeeignete Begriffe.',
+      reason: 'Category contains inappropriate terms.',
       isExisting,
     };
   }
@@ -163,7 +149,7 @@ export function validateCategoryInput(rawValue, existingCategories = []) {
     if (!hasAutomotiveKeyword) {
       return {
         ok: false,
-        reason: 'Neue Kategorien müssen klar mit Autoteilen oder Fahrzeugtechnik zu tun haben.',
+        reason: 'New categories must clearly relate to vehicle parts or automotive technology.',
         isExisting: false,
       };
     }
@@ -172,8 +158,8 @@ export function validateCategoryInput(rawValue, existingCategories = []) {
   return {
     ok: true,
     reason: isExisting
-      ? 'Bestehende Kategorie ausgewählt.'
-      : 'Neue Autoteile-Kategorie ist gültig.',
+      ? 'Existing category selected.'
+      : 'New automotive category is valid.',
     isExisting,
   };
 }

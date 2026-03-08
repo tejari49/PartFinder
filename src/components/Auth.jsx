@@ -8,13 +8,13 @@ import { auth } from '../firebase';
 import ThemeSwitcher from './ThemeSwitcher';
 
 const authErrorMap = {
-  'auth/email-already-in-use': 'Diese E-Mail wird bereits verwendet.',
-  'auth/invalid-email': 'Die E-Mail-Adresse ist ungültig.',
-  'auth/invalid-credential': 'E-Mail oder Passwort ist falsch.',
-  'auth/weak-password': 'Das Passwort muss mindestens 6 Zeichen lang sein.',
-  'auth/missing-password': 'Bitte ein Passwort eingeben.',
-  'auth/too-many-requests': 'Zu viele Versuche. Bitte später erneut probieren.',
-  'auth/operation-not-allowed': 'E-Mail/Passwort-Anmeldung ist in Firebase noch nicht aktiviert.',
+  'auth/email-already-in-use': 'This email is already in use.',
+  'auth/invalid-email': 'The email address is invalid.',
+  'auth/invalid-credential': 'Email or password is incorrect.',
+  'auth/weak-password': 'Password must be at least 6 characters.',
+  'auth/missing-password': 'Please enter a password.',
+  'auth/too-many-requests': 'Too many attempts. Please try again later.',
+  'auth/operation-not-allowed': 'Email/password sign-in is not enabled in Firebase.',
 };
 
 export default function Auth({ onToast, theme, onThemeChange }) {
@@ -23,6 +23,7 @@ export default function Auth({ onToast, theme, onThemeChange }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const logoSrc = `${import.meta.env.BASE_URL}partfinder-logo.svg`;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -38,14 +39,14 @@ export default function Auth({ onToast, theme, onThemeChange }) {
           });
         }
 
-        onToast('Konto erstellt. Du bist jetzt eingeloggt.', 'success');
+        onToast('Account created. You are now signed in.', 'success');
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password);
-        onToast('Login erfolgreich.', 'success');
+        onToast('Signed in successfully.', 'success');
       }
     } catch (error) {
       console.error(error);
-      onToast(authErrorMap[error.code] || 'Authentifizierung fehlgeschlagen.', 'error');
+      onToast(authErrorMap[error.code] || 'Authentication failed.', 'error');
     } finally {
       setLoading(false);
     }
@@ -59,10 +60,10 @@ export default function Auth({ onToast, theme, onThemeChange }) {
 
       <div className="w-full max-w-md rounded-[2rem] pf-card p-5 sm:p-6">
         <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--pf-primary)]">PartFinder</p>
-          <h1 className="mt-2 text-2xl font-black tracking-tight text-[var(--pf-text)]">Autoteile-Marktplatz 🚗</h1>
+          <img src={logoSrc} alt="PartFinder" className="h-auto w-full max-w-[18rem]" />
+          <h1 className="mt-3 text-2xl font-black tracking-tight text-[var(--pf-text)]">Auto Parts Marketplace</h1>
           <p className="mt-2 text-sm leading-6 text-[var(--pf-muted)]">
-            Geschützter Zugang. Erst Login, dann Marktplatz, Chats, Favoriten und Dashboard.
+            Secure access. Sign in first, then browse listings, chats, favorites, and your dashboard.
           </p>
         </div>
 
@@ -74,7 +75,7 @@ export default function Auth({ onToast, theme, onThemeChange }) {
               mode === 'login' ? 'bg-[var(--pf-primary)] text-[#04111a]' : 'text-[var(--pf-muted)]'
             }`}
           >
-            Login
+            Sign In
           </button>
           <button
             type="button"
@@ -83,19 +84,19 @@ export default function Auth({ onToast, theme, onThemeChange }) {
               mode === 'register' ? 'bg-[var(--pf-primary)] text-[#04111a]' : 'text-[var(--pf-muted)]'
             }`}
           >
-            Registrieren
+            Register
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' ? (
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Anzeigename</span>
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Display name</span>
               <input
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="z. B. Max Muster"
+                placeholder="e.g. Alex Miller"
                 className="pf-input px-4 py-3"
                 required
               />
@@ -103,7 +104,7 @@ export default function Auth({ onToast, theme, onThemeChange }) {
           ) : null}
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">E-Mail</span>
+            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Email</span>
             <input
               type="email"
               value={email}
@@ -115,13 +116,13 @@ export default function Auth({ onToast, theme, onThemeChange }) {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Passwort</span>
+            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Password</span>
             <input
               type="password"
               minLength={6}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Mindestens 6 Zeichen"
+              placeholder="At least 6 characters"
               className="pf-input px-4 py-3"
               required
             />
@@ -132,7 +133,7 @@ export default function Auth({ onToast, theme, onThemeChange }) {
             disabled={loading}
             className="pf-button-primary w-full px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Bitte warten…' : mode === 'register' ? 'Konto erstellen' : 'Einloggen'}
+            {loading ? 'Please wait...' : mode === 'register' ? 'Create Account' : 'Sign In'}
           </button>
         </form>
       </div>

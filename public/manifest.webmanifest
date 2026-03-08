@@ -1,7 +1,7 @@
 {
   "name": "PartFinder",
   "short_name": "PartFinder",
-  "description": "Autoteile-Marktplatz als Progressive Web App",
+  "description": "Auto parts marketplace as a Progressive Web App",
   "start_url": "/PartFinder/",
   "scope": "/PartFinder/",
   "display": "standalone",

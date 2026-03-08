@@ -1,13 +1,13 @@
 const options = [
   {
     value: 'amoled',
-    label: 'AMOLED Black',
-    emoji: '🌙',
+    label: 'Dark mode',
+    icon: 'D',
   },
   {
     value: 'light',
-    label: 'Smooth Light',
-    emoji: '☀️',
+    label: 'Light mode',
+    icon: 'L',
   },
 ];
 
@@ -30,7 +30,7 @@ export default function ThemeSwitcher({ value, onChange, compact = false }) {
             title={option.label}
             aria-label={option.label}
           >
-            <span aria-hidden="true">{option.emoji}</span>
+            <span aria-hidden="true">{option.icon}</span>
           </button>
         );
       })}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { validateCategoryInput } from '../utils/categoryValidation';
+import { normalizeConditionValue } from '../utils/format';
 import { resizeImageToBase64 } from '../utils/image';
 
 const initialState = {
@@ -13,7 +14,7 @@ const initialState = {
   vehicleGeneration: '',
   title: '',
   price: '',
-  condition: 'Gebraucht',
+  condition: 'Used',
   description: '',
   imagesBase64: [],
   location: '',
@@ -21,7 +22,7 @@ const initialState = {
   pickupAvailable: true,
 };
 
-const conditions = ['Neu', 'Neuwertig', 'Gebraucht', 'Defekt / Bastler', 'Generalüberholt'];
+const conditions = ['New', 'Like new', 'Used', 'Defective / DIY', 'Refurbished'];
 const MAX_IMAGES = 3;
 const MAX_TOTAL_BASE64_CHARS = 950000;
 
@@ -51,7 +52,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
       vehicleGeneration: editingPart.vehicleGeneration || '',
       title: editingPart.title || '',
       price: editingPart.price ?? '',
-      condition: editingPart.condition || 'Gebraucht',
+      condition: normalizeConditionValue(editingPart.condition || 'Used'),
       description: editingPart.description || '',
       imagesBase64:
         editingPart.imagesBase64?.length > 0
@@ -104,7 +105,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
       const totalSize = nextImages.reduce((sum, image) => sum + image.length, 0);
 
       if (totalSize > MAX_TOTAL_BASE64_CHARS) {
-        onToast('Bilder sind zusammen zu groß. Bitte kleinere Bilder wählen.', 'error');
+        onToast('Combined image size is too large. Please select smaller images.', 'error');
         return;
       }
 
@@ -113,10 +114,10 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
         imagesBase64: nextImages,
       }));
 
-      onToast(`${nextImages.length} Bild${nextImages.length > 1 ? 'er' : ''} vorbereitet.`, 'success');
+      onToast(`${nextImages.length} image${nextImages.length > 1 ? 's' : ''} prepared.`, 'success');
     } catch (error) {
       console.error(error);
-      onToast('Bilder konnten nicht verarbeitet werden.', 'error');
+      onToast('Images could not be processed.', 'error');
     } finally {
       setIsProcessingImage(false);
     }
@@ -126,12 +127,12 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
     event.preventDefault();
 
     if (!categoryValidation?.ok) {
-      onToast(categoryValidation?.reason || 'Kategorie ist ungültig.', 'error');
+      onToast(categoryValidation?.reason || 'Category is invalid.', 'error');
       return;
     }
 
     if (form.imagesBase64.length === 0) {
-      onToast('Mindestens ein Bild ist Pflicht.', 'error');
+      onToast('At least one image is required.', 'error');
       return;
     }
 
@@ -141,6 +142,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
       await onSubmit(
         {
           ...form,
+          condition: normalizeConditionValue(form.condition),
           price: Number(form.price),
         },
         editingPart,
@@ -164,15 +166,15 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[var(--pf-text)]">
-            {editingPart ? 'Inserat bearbeiten' : 'Teil einstellen'}
+            {editingPart ? 'Edit listing' : 'Create listing'}
           </h2>
           <p className="mt-1 text-sm text-[var(--pf-muted)]">
-            Neue Kategorien werden nur akzeptiert, wenn sie klar zu Autoteilen passen.
+            New categories are only accepted if they clearly match automotive parts.
           </p>
         </div>
         {editingPart ? (
           <button type="button" onClick={onCancelEdit} className="pf-button-secondary px-3 py-2 text-sm">
-            Abbrechen
+            Cancel
           </button>
         ) : null}
       </div>
@@ -180,12 +182,12 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block sm:col-span-2">
-            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Kategorie</span>
+            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Category</span>
             <input
               list="partfinder-categories"
               value={form.category}
               onChange={(event) => updateField('category', event.target.value)}
-              placeholder="z. B. Turbolader"
+              placeholder="e.g. Turbocharger"
               className="pf-input px-4 py-3"
               required
             />
@@ -205,12 +207,12 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
             >
               {categoryValidation
                 ? categoryValidation.reason
-                : 'Bestehende Kategorie wählen oder eine neue Autoteile-Kategorie eingeben.'}
+                : 'Choose an existing category or enter a new automotive one.'}
             </p>
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Zustand</span>
+            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Condition</span>
             <select
               value={form.condition}
               onChange={(event) => updateField('condition', event.target.value)}
@@ -225,7 +227,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Preis (€)</span>
+            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Price (EUR)</span>
             <input
               type="number"
               min="0"
@@ -241,7 +243,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Marke</span>
+            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Brand</span>
             <input
               type="text"
               value={form.brand}
@@ -253,7 +255,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Modell</span>
+            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Model</span>
             <input
               type="text"
               value={form.model}
@@ -266,32 +268,32 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
         </div>
 
         <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
-          <p className="mb-3 text-sm font-semibold text-[var(--pf-text)]">Kompatibilitaet</p>
+          <p className="mb-3 text-sm font-semibold text-[var(--pf-text)]">Compatibility</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">OEM Nummer</span>
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">OEM number</span>
               <input
                 type="text"
                 value={form.oemNumber}
                 onChange={(event) => updateField('oemNumber', event.target.value)}
-                placeholder="z.B. 11657790806"
+                placeholder="e.g. 11657790806"
                 className="pf-input px-4 py-3"
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Motorcode</span>
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Engine code</span>
               <input
                 type="text"
                 value={form.engineCode}
                 onChange={(event) => updateField('engineCode', event.target.value)}
-                placeholder="z.B. N47D20C"
+                placeholder="e.g. N47D20C"
                 className="pf-input px-4 py-3"
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Baujahr von</span>
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Year from</span>
               <input
                 type="number"
                 min="1900"
@@ -304,7 +306,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Baujahr bis</span>
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Year to</span>
               <input
                 type="number"
                 min="1900"
@@ -317,12 +319,12 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
             </label>
 
             <label className="block sm:col-span-2">
-              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Modellgeneration</span>
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Model generation</span>
               <input
                 type="text"
                 value={form.vehicleGeneration}
                 onChange={(event) => updateField('vehicleGeneration', event.target.value)}
-                placeholder="z.B. E90 Facelift"
+                placeholder="e.g. E90 Facelift"
                 className="pf-input px-4 py-3"
               />
             </label>
@@ -330,12 +332,12 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
         </div>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Titel</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Title</span>
           <input
             type="text"
             value={form.title}
             onChange={(event) => updateField('title', event.target.value)}
-            placeholder="Original BMW Turbolader 320d"
+            placeholder="Original BMW turbocharger 320d"
             className="pf-input px-4 py-3"
             required
           />
@@ -343,18 +345,18 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Standort</span>
+            <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Location</span>
             <input
               type="text"
               value={form.location}
               onChange={(event) => updateField('location', event.target.value)}
-              placeholder="Zürich / Winterthur / Bern"
+              placeholder="Zurich / Winterthur / Bern"
               className="pf-input px-4 py-3"
             />
           </label>
 
           <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
-            <p className="mb-3 text-sm font-semibold text-[var(--pf-text)]">Versand / Abholung</p>
+            <p className="mb-3 text-sm font-semibold text-[var(--pf-text)]">Shipping / Pickup</p>
             <div className="space-y-2">
               <label className="flex items-center gap-3 text-sm text-[var(--pf-text)]">
                 <input
@@ -362,7 +364,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
                   checked={form.shippingAvailable}
                   onChange={(event) => updateField('shippingAvailable', event.target.checked)}
                 />
-                Versand möglich
+                Shipping available
               </label>
               <label className="flex items-center gap-3 text-sm text-[var(--pf-text)]">
                 <input
@@ -370,26 +372,26 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
                   checked={form.pickupAvailable}
                   onChange={(event) => updateField('pickupAvailable', event.target.checked)}
                 />
-                Abholung möglich
+                Pickup available
               </label>
             </div>
           </div>
         </div>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Beschreibung</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Description</span>
           <textarea
             rows="4"
             value={form.description}
             onChange={(event) => updateField('description', event.target.value)}
-            placeholder="Details, Kompatibilität, Mängel, Versandhinweise …"
+            placeholder="Details, compatibility, issues, shipping notes..."
             className="pf-textarea px-4 py-3"
             required
           />
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Bilder</span>
+          <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Images</span>
           <input
             ref={fileInputRef}
             type="file"
@@ -399,7 +401,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
             className="pf-input px-4 py-3"
           />
           <p className="mt-2 text-xs text-[var(--pf-muted)]">
-            Maximal {MAX_IMAGES} Bilder. Das erste Bild wird als Vorschau genutzt.
+            Up to {MAX_IMAGES} images. The first image is used as the preview.
           </p>
         </label>
 
@@ -410,7 +412,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
                 key={`${image.slice(0, 30)}-${index}`}
                 className="overflow-hidden rounded-[1rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-3)]"
               >
-                <img src={image} alt={`Vorschau ${index + 1}`} className="h-24 w-full object-cover" />
+                <img src={image} alt={`Preview ${index + 1}`} className="h-24 w-full object-cover" />
               </div>
             ))}
           </div>
@@ -418,7 +420,7 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
 
         {editingPart?.status === 'sold' ? (
           <div className="rounded-[1rem] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-            Dieses Inserat ist aktuell als verkauft markiert. Den Status kannst du im Detailfenster oder Dashboard wieder auf aktiv setzen.
+            This listing is currently marked as sold. You can switch it back to active in the detail modal or dashboard.
           </div>
         ) : null}
 
@@ -428,12 +430,12 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
           className="pf-button-primary w-full px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isProcessingImage
-            ? 'Bilder werden verarbeitet…'
+            ? 'Processing images...'
             : isSubmitting
-              ? 'Speichert…'
+              ? 'Saving...'
               : editingPart
-                ? 'Inserat aktualisieren'
-                : 'Inserat veröffentlichen'}
+                ? 'Update listing'
+                : 'Publish listing'}
         </button>
       </form>
     </section>
