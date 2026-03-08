@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { validateCategoryInput } from '../utils/categoryValidation';
+import {
+  findBrandSelection,
+  getBrandGroups,
+  getBrandMainCategories,
+  getBrandsBySelection,
+} from '../utils/carBrands';
 import { normalizeConditionValue } from '../utils/format';
 import { resizeImageToBase64 } from '../utils/image';
 
 const initialState = {
   category: '',
+  brandMainCategory: 'europe',
+  brandGroup: 'all',
   brand: '',
   model: '',
   oemNumber: '',
@@ -44,8 +52,15 @@ const text = {
     categoryHint: 'Choose an existing category or enter a new automotive one.',
     condition: 'Condition',
     price: 'Price (EUR)',
+    brandPresets: 'Brand presets (Europe + Balkans)',
+    mainCategory: 'Main category',
+    brandGroup: 'Country / region',
+    allGroups: 'All groups',
+    brandHint: (count) => `${count} preset brands available. You can still type your own brand.`,
     brand: 'Brand',
+    brandPlaceholder: 'Select or type brand (e.g. BMW)',
     model: 'Model',
+    modelPlaceholder: 'e.g. 320d E90',
     compatibility: 'Compatibility',
     oem: 'OEM number',
     oemPlaceholder: 'e.g. 11657790806',
@@ -88,8 +103,15 @@ const text = {
     categoryHint: 'Bestehende Kategorie waehlen oder neue Autoteile-Kategorie eingeben.',
     condition: 'Zustand',
     price: 'Preis (EUR)',
+    brandPresets: 'Marken-Presets (Europa + Balkan)',
+    mainCategory: 'Hauptkategorie',
+    brandGroup: 'Land / Region',
+    allGroups: 'Alle Gruppen',
+    brandHint: (count) => `${count} Preset-Marken verfuegbar. Du kannst trotzdem frei tippen.`,
     brand: 'Marke',
+    brandPlaceholder: 'Marke waehlen oder tippen (z. B. BMW)',
     model: 'Modell',
+    modelPlaceholder: 'z. B. 320d E90',
     compatibility: 'Kompatibilitaet',
     oem: 'OEM Nummer',
     oemPlaceholder: 'z. B. 11657790806',
@@ -137,6 +159,32 @@ export default function AddPartForm({
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
+  const baseMainCategoryOptions = useMemo(() => getBrandMainCategories('en'), []);
+
+  const mainCategoryOptions = useMemo(
+    () => getBrandMainCategories(language),
+    [language],
+  );
+
+  const activeMainCategory = useMemo(() => {
+    const valid = baseMainCategoryOptions.some((entry) => entry.key === form.brandMainCategory);
+    return valid ? form.brandMainCategory : 'europe';
+  }, [baseMainCategoryOptions, form.brandMainCategory]);
+
+  const brandGroupOptions = useMemo(
+    () => getBrandGroups(activeMainCategory, language),
+    [activeMainCategory, language],
+  );
+
+  const activeBrandGroup = useMemo(() => {
+    const valid = brandGroupOptions.some((entry) => entry.key === form.brandGroup);
+    return valid ? form.brandGroup : 'all';
+  }, [brandGroupOptions, form.brandGroup]);
+
+  const availableBrands = useMemo(
+    () => getBrandsBySelection(activeMainCategory, activeBrandGroup),
+    [activeBrandGroup, activeMainCategory],
+  );
 
   useEffect(() => {
     if (!editingPart) {
@@ -147,8 +195,12 @@ export default function AddPartForm({
       return;
     }
 
+    const inferredSelection = findBrandSelection(editingPart.brand || '');
+
     setForm({
       category: editingPart.category || '',
+      brandMainCategory: editingPart.brandMainCategory || inferredSelection.mainCategory,
+      brandGroup: editingPart.brandGroup || inferredSelection.group,
       brand: editingPart.brand || '',
       model: editingPart.model || '',
       oemNumber: editingPart.oemNumber || '',
@@ -242,6 +294,8 @@ export default function AddPartForm({
       await onSubmit(
         {
           ...form,
+          brandMainCategory: activeMainCategory,
+          brandGroup: activeBrandGroup,
           condition: normalizeConditionValue(form.condition),
           price: Number(form.price),
         },
@@ -335,17 +389,66 @@ export default function AddPartForm({
           </label>
         </div>
 
+        <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
+          <p className="mb-3 text-sm font-semibold text-[var(--pf-text)]">{t.brandPresets}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">{t.mainCategory}</span>
+              <select
+                value={activeMainCategory}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    brandMainCategory: event.target.value,
+                    brandGroup: 'all',
+                  }))
+                }
+                className="pf-select px-4 py-3"
+              >
+                {mainCategoryOptions.map((entry) => (
+                  <option key={entry.key} value={entry.key}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">{t.brandGroup}</span>
+              <select
+                value={activeBrandGroup}
+                onChange={(event) => updateField('brandGroup', event.target.value)}
+                className="pf-select px-4 py-3"
+              >
+                <option value="all">{t.allGroups}</option>
+                {brandGroupOptions.map((group) => (
+                  <option key={group.key} value={group.key}>
+                    {group.label} ({group.brandCount})
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className="mt-3 text-xs text-[var(--pf-muted)]">{t.brandHint(availableBrands.length)}</p>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">{t.brand}</span>
             <input
               type="text"
+              list="partfinder-brands"
               value={form.brand}
               onChange={(event) => updateField('brand', event.target.value)}
-              placeholder="BMW"
+              placeholder={t.brandPlaceholder}
               className="pf-input px-4 py-3"
               required
             />
+            <datalist id="partfinder-brands">
+              {availableBrands.map((brand) => (
+                <option key={brand} value={brand} />
+              ))}
+            </datalist>
           </label>
 
           <label className="block">
@@ -354,7 +457,7 @@ export default function AddPartForm({
               type="text"
               value={form.model}
               onChange={(event) => updateField('model', event.target.value)}
-              placeholder="320d E90"
+              placeholder={t.modelPlaceholder}
               className="pf-input px-4 py-3"
               required
             />

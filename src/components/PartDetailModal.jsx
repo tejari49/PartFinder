@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import Avatar from './Avatar';
 import ModalShell from './ModalShell';
 import {
+  getBrandGroupLabel,
+  getBrandMainCategoryLabel,
+} from '../utils/carBrands';
+import {
   currencyFormatter,
   formatDateTime,
   getConditionLabel,
@@ -29,6 +33,7 @@ const text = {
     soldHint: 'This item is currently marked as sold.',
     reservedHint: 'This item is currently reserved.',
     condition: 'Condition',
+    brandScope: 'Brand scope',
     location: 'Location',
     shippingPickup: 'Shipping / Pickup',
     compatibility: 'Compatibility',
@@ -86,6 +91,7 @@ const text = {
     soldHint: 'Dieses Teil ist aktuell als verkauft markiert.',
     reservedHint: 'Dieses Teil ist aktuell reserviert.',
     condition: 'Zustand',
+    brandScope: 'Markenbereich',
     location: 'Standort',
     shippingPickup: 'Versand / Abholung',
     compatibility: 'Kompatibilitaet',
@@ -218,6 +224,9 @@ export default function PartDetailModal({
   const isReserved = status === 'reserved';
   const reservedForCurrentUser = !!part.reservedForUid && part.reservedForUid === currentUser?.uid;
   const canContactSeller = !isSold && (!isReserved || !part.reservedForUid || reservedForCurrentUser);
+  const brandMainCategoryLabel = getBrandMainCategoryLabel(part.brandMainCategory, language);
+  const brandGroupLabel = getBrandGroupLabel(part.brandMainCategory, part.brandGroup, language);
+  const brandScopeLabel = [brandMainCategoryLabel, brandGroupLabel].filter(Boolean).join(' / ');
 
   const handleRatingSubmit = async (event) => {
     event.preventDefault();
@@ -320,6 +329,10 @@ export default function PartDetailModal({
               <div className="rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3">
                 <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">{t.condition}</p>
                 <p className="mt-1 font-semibold text-[var(--pf-text)]">{getConditionLabel(part.condition, language)}</p>
+              </div>
+              <div className="rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">{t.brandScope}</p>
+                <p className="mt-1 font-semibold text-[var(--pf-text)]">{brandScopeLabel || t.notSpecified}</p>
               </div>
               <div className="rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3">
                 <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">{t.location}</p>
