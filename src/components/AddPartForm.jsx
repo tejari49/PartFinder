@@ -6,6 +6,11 @@ const initialState = {
   category: '',
   brand: '',
   model: '',
+  oemNumber: '',
+  engineCode: '',
+  yearFrom: '',
+  yearTo: '',
+  vehicleGeneration: '',
   title: '',
   price: '',
   condition: 'Gebraucht',
@@ -39,6 +44,11 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
       category: editingPart.category || '',
       brand: editingPart.brand || '',
       model: editingPart.model || '',
+      oemNumber: editingPart.oemNumber || '',
+      engineCode: editingPart.engineCode || '',
+      yearFrom: editingPart.yearFrom ?? '',
+      yearTo: editingPart.yearTo ?? '',
+      vehicleGeneration: editingPart.vehicleGeneration || '',
       title: editingPart.title || '',
       price: editingPart.price ?? '',
       condition: editingPart.condition || 'Gebraucht',
@@ -253,6 +263,70 @@ export default function AddPartForm({ categories, onSubmit, onToast, editingPart
               required
             />
           </label>
+        </div>
+
+        <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
+          <p className="mb-3 text-sm font-semibold text-[var(--pf-text)]">Kompatibilitaet</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">OEM Nummer</span>
+              <input
+                type="text"
+                value={form.oemNumber}
+                onChange={(event) => updateField('oemNumber', event.target.value)}
+                placeholder="z.B. 11657790806"
+                className="pf-input px-4 py-3"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Motorcode</span>
+              <input
+                type="text"
+                value={form.engineCode}
+                onChange={(event) => updateField('engineCode', event.target.value)}
+                placeholder="z.B. N47D20C"
+                className="pf-input px-4 py-3"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Baujahr von</span>
+              <input
+                type="number"
+                min="1900"
+                max="2100"
+                value={form.yearFrom}
+                onChange={(event) => updateField('yearFrom', event.target.value)}
+                placeholder="2010"
+                className="pf-input px-4 py-3"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Baujahr bis</span>
+              <input
+                type="number"
+                min="1900"
+                max="2100"
+                value={form.yearTo}
+                onChange={(event) => updateField('yearTo', event.target.value)}
+                placeholder="2013"
+                className="pf-input px-4 py-3"
+              />
+            </label>
+
+            <label className="block sm:col-span-2">
+              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Modellgeneration</span>
+              <input
+                type="text"
+                value={form.vehicleGeneration}
+                onChange={(event) => updateField('vehicleGeneration', event.target.value)}
+                placeholder="z.B. E90 Facelift"
+                className="pf-input px-4 py-3"
+              />
+            </label>
+          </div>
         </div>
 
         <label className="block">

@@ -32,11 +32,23 @@ function ScopeTab({ active, children, onClick }) {
 }
 
 function StatusPill({ status }) {
-  return status === 'sold' ? (
-    <span className="rounded-full bg-[var(--pf-danger)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white">
-      Verkauft
-    </span>
-  ) : (
+  if (status === 'sold') {
+    return (
+      <span className="rounded-full bg-[var(--pf-danger)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white">
+        Verkauft
+      </span>
+    );
+  }
+
+  if (status === 'reserved') {
+    return (
+      <span className="rounded-full bg-amber-500/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-amber-300">
+        Reserviert
+      </span>
+    );
+  }
+
+  return (
     <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-400">
       Aktiv
     </span>
@@ -68,8 +80,11 @@ function MobileNavButton({ active, label, badge, onClick }) {
   );
 }
 
-function PartCard({ part, onOpenDetails, isOwn, isFavorite, onToggleFavorite }) {
+function PartCard({ part, onOpenDetails, isOwn, isFavorite, onToggleFavorite, sellerTrust }) {
   const previewImage = part.imagesBase64?.[0] || part.imageBase64 || '';
+  const average = sellerTrust?.ratingAverage || 0;
+  const ratingCount = sellerTrust?.ratingCount || 0;
+  const soldCount = sellerTrust?.soldCount || 0;
 
   return (
     <div className="group relative overflow-hidden rounded-[1.35rem] pf-card">
@@ -123,6 +138,16 @@ function PartCard({ part, onOpenDetails, isOwn, isFavorite, onToggleFavorite }) 
             </span>
             <span className="truncate text-[var(--pf-muted)]">{part.location || 'Ohne Standort'}</span>
           </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--pf-muted)]">
+            {sellerTrust?.verified ? (
+              <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 font-semibold text-emerald-300">
+                Verifiziert
+              </span>
+            ) : null}
+            <span>{ratingCount > 0 ? `★ ${average.toFixed(1)} (${ratingCount})` : 'Noch keine Bewertung'}</span>
+            <span>{`${soldCount} verkauft`}</span>
+          </div>
         </div>
       </button>
     </div>
@@ -157,6 +182,9 @@ export default function Marketplace({
   onToggleFavorite,
   myPartsCount,
   soldCount,
+  sellerTrustByUid,
+  onSubmitRating,
+  onSubmitReport,
 }) {
   const [selectedPart, setSelectedPart] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -183,7 +211,15 @@ export default function Marketplace({
       const price = Number(part.price || 0);
       const matchesSearch =
         needle.length === 0 ||
-        [part.brand, part.model, part.title].some((value) => value?.toLowerCase().includes(needle));
+        [
+          part.brand,
+          part.model,
+          part.title,
+          part.oemNumber,
+          part.engineCode,
+          part.vehicleGeneration,
+          part.description,
+        ].some((value) => value?.toLowerCase().includes(needle));
       const matchesFavorites = !showOnlyFavorites || favoritePartIds.includes(part.id);
       const matchesScope = listingScope !== 'mine' || part.sellerUid === user.uid;
       const matchesStatus = statusFilter === 'all' || (part.status || 'active') === statusFilter;
@@ -240,6 +276,7 @@ export default function Marketplace({
     if (listingScope === 'mine') tags.push('Meine Inserate');
     if (showOnlyFavorites) tags.push('Merkliste');
     if (statusFilter === 'active') tags.push('Nur aktiv');
+    if (statusFilter === 'reserved') tags.push('Nur reserviert');
     if (statusFilter === 'sold') tags.push('Nur verkauft');
     if (minPrice !== '') tags.push(`ab ${minPrice}€`);
     if (maxPrice !== '') tags.push(`bis ${maxPrice}€`);
@@ -262,7 +299,7 @@ export default function Marketplace({
       return (
         <div className="rounded-[1.75rem] pf-card p-8 text-center">
           <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-[var(--pf-primary-soft)]" />
-          <p className="text-lg font-semibold text-[var(--pf-text)]">Inserate werden geladen…</p>
+          <p className="text-lg font-semibold text-[var(--pf-text)]">Inserate werden geladen...</p>
         </div>
       );
     }
@@ -273,7 +310,7 @@ export default function Marketplace({
           <p className="text-lg font-semibold text-[var(--pf-text)]">Keine passenden Inserate gefunden.</p>
           <p className="mt-2 text-sm text-[var(--pf-muted)]">
             {isMobile
-              ? 'Prüfe Filter und Kategorien oder erstelle über die untere Leiste dein erstes Inserat.'
+              ? 'Pruefe Filter und Kategorien oder erstelle ueber die untere Leiste dein erstes Inserat.'
               : 'Passe Suche, Preisbereich, Status oder Kategorie an.'}
           </p>
         </div>
@@ -290,6 +327,7 @@ export default function Marketplace({
             isOwn={part.sellerUid === user.uid}
             isFavorite={favoritePartIds.includes(part.id)}
             onToggleFavorite={onToggleFavorite}
+            sellerTrust={sellerTrustByUid[part.sellerUid]}
           />
         ))}
       </div>
@@ -317,12 +355,13 @@ export default function Marketplace({
         />
         <select value={sortMode} onChange={(event) => setSortMode(event.target.value)} className="pf-select px-4 py-3">
           <option value="newest">Neueste zuerst</option>
-          <option value="price-asc">Preis günstig → teuer</option>
-          <option value="price-desc">Preis teuer → günstig</option>
+          <option value="price-asc">Preis guenstig → teuer</option>
+          <option value="price-desc">Preis teuer → guenstig</option>
         </select>
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="pf-select px-4 py-3">
           <option value="all">Alle Status</option>
           <option value="active">Nur aktiv</option>
+          <option value="reserved">Nur reserviert</option>
           <option value="sold">Nur verkauft</option>
         </select>
       </div>
@@ -347,12 +386,12 @@ export default function Marketplace({
         <div>
           <p className="text-sm font-semibold text-[var(--pf-text)]">Kategorien</p>
           <p className="mt-1 text-xs text-[var(--pf-muted)]">
-            {categoriesLoading ? 'Kategorien werden geladen…' : `${visibleParts.length} Treffer sichtbar.`}
+            {categoriesLoading ? 'Kategorien werden geladen...' : `${visibleParts.length} Treffer sichtbar.`}
           </p>
         </div>
         {selectedCategory !== 'Alle' ? (
           <button type="button" onClick={() => handleCategorySelect('Alle')} className="pf-button-secondary px-3 py-2 text-xs">
-            Zurücksetzen
+            Zuruecksetzen
           </button>
         ) : null}
       </div>
@@ -387,10 +426,10 @@ export default function Marketplace({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="pf-hero-badge px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em]">
-                  Geschützt
+                  Geschuetzt
                 </div>
                 <h1 className="mt-3 text-2xl font-black tracking-tight text-[var(--pf-text)] sm:text-3xl">
-                  PartFinder 🚗
+                  PartFinder
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--pf-muted)]">
                   Kompakt, gefiltert und direkt auf Autoteile fokussiert. Vorschau zuerst, Details nach Klick.
@@ -436,7 +475,7 @@ export default function Marketplace({
                 type="search"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Suche nach Marke, Modell oder Titel …"
+                placeholder="Suche nach Marke, Modell, OEM oder Motorcode..."
                 className="pf-input px-4 py-3"
               />
 
@@ -540,21 +579,24 @@ export default function Marketplace({
         <PartDetailModal
           part={selectedPart}
           sellerProfile={profilesByUid[selectedPart.sellerUid] || null}
+          sellerTrust={sellerTrustByUid[selectedPart.sellerUid] || null}
           currentUser={user}
           onClose={() => setSelectedPart(null)}
           onStartChat={onStartChat}
-          onEditPart={(part) => {
-            onEditPart(part);
+          onEditPart={(item) => {
+            onEditPart(item);
             setSelectedPart(null);
             setMobileSection('sell');
           }}
-          onDeletePart={async (part) => {
-            await onDeletePart(part);
+          onDeletePart={async (item) => {
+            await onDeletePart(item);
             setSelectedPart(null);
           }}
           onSetPartStatus={onSetPartStatus}
           isFavorite={favoritePartIds.includes(selectedPart.id)}
           onToggleFavorite={onToggleFavorite}
+          onSubmitRating={onSubmitRating}
+          onSubmitReport={onSubmitReport}
         />
       ) : null}
     </>

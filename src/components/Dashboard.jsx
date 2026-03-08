@@ -5,59 +5,38 @@ import ThemeSwitcher from './ThemeSwitcher';
 import { resizeImageToBase64 } from '../utils/image';
 import { currencyFormatter, formatShortDateTime } from '../utils/format';
 
-const sections = [
-  { id: 'profile', label: 'Profil' },
-  { id: 'password', label: 'Passwort' },
-  { id: 'favorites', label: 'Merkliste' },
-  { id: 'chats', label: 'Chats' },
-  { id: 'parts', label: 'Inserate' },
-];
+function StatusBadge({ status }) {
+  if (status === 'sold') {
+    return <span className="rounded-full bg-[var(--pf-danger)] px-2 py-1 text-[10px] font-bold text-white">Verkauft</span>;
+  }
+  if (status === 'reserved') {
+    return <span className="rounded-full bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300">Reserviert</span>;
+  }
+  return <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-bold text-emerald-300">Aktiv</span>;
+}
 
-function NavItem({ active, onClick, label, badge }) {
+function SectionButton({ active, onClick, label, badge }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-[1rem] px-4 py-3 text-left text-sm font-semibold transition ${
-        active
-          ? 'bg-[var(--pf-primary)] text-[#04111a]'
-          : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)] hover:bg-[var(--pf-surface-3)]'
+      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold ${
+        active ? 'bg-[var(--pf-primary)] text-[#04111a]' : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)]'
       }`}
     >
       <span>{label}</span>
-      {badge ? (
-        <span
-          className={`rounded-full px-2 py-0.5 text-[11px] ${
-            active ? 'bg-white/30 text-[#04111a]' : 'bg-[var(--pf-danger)] text-white'
-          }`}
-        >
-          {badge}
-        </span>
-      ) : null}
+      {badge ? <span className="rounded-full bg-[var(--pf-danger)] px-2 py-0.5 text-[11px] text-white">{badge}</span> : null}
     </button>
   );
 }
 
-function StatusBadge({ status }) {
-  return status === 'sold' ? (
-    <span className="rounded-full bg-[var(--pf-danger)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white">
-      Verkauft
-    </span>
-  ) : (
-    <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-400">
-      Aktiv
-    </span>
-  );
-}
-
-function OverviewTile({ label, value }) {
-  return (
-    <div className="rounded-[1rem] bg-[var(--pf-surface-2)] px-3 py-3">
-      <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--pf-muted)]">{label}</p>
-      <p className="mt-1 text-sm font-black text-[var(--pf-text)]">{value}</p>
-    </div>
-  );
-}
+const baseSections = [
+  { id: 'profile', label: 'Profil' },
+  { id: 'password', label: 'Passwort' },
+  { id: 'favorites', label: 'Merkliste' },
+  { id: 'chats', label: 'Chats' },
+  { id: 'parts', label: 'Eigene Inserate' },
+];
 
 export default function Dashboard({
   user,
@@ -78,10 +57,17 @@ export default function Dashboard({
   theme,
   onThemeChange,
   favoriteParts,
-  totalPartsCount,
-  categoriesCount,
-  totalSoldCount,
+  sellerTrustByUid,
+  isModerator,
+  reports,
+  reportsLoading,
+  onModerateReport,
+  moderationOpenCount,
 }) {
+  const sections = useMemo(
+    () => (isModerator ? [...baseSections, { id: 'moderation', label: 'Moderation' }] : baseSections),
+    [isModerator],
+  );
   const [activeSection, setActiveSection] = useState(selectedChatId ? 'chats' : 'profile');
   const [profileForm, setProfileForm] = useState({
     displayName: '',
@@ -90,14 +76,12 @@ export default function Dashboard({
     avatarBase64: '',
     themePreference: 'amoled',
   });
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-  });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
   const [partsFilter, setPartsFilter] = useState('all');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [processingAvatar, setProcessingAvatar] = useState(false);
+  const [moderationNotes, setModerationNotes] = useState({});
   const avatarInputRef = useRef(null);
 
   useEffect(() => {
@@ -111,10 +95,14 @@ export default function Dashboard({
   }, [profile, theme, user.displayName]);
 
   useEffect(() => {
-    if (selectedChatId) {
-      setActiveSection('chats');
-    }
+    if (selectedChatId) setActiveSection('chats');
   }, [selectedChatId]);
+
+  useEffect(() => {
+    if (!sections.some((item) => item.id === activeSection)) {
+      setActiveSection('profile');
+    }
+  }, [activeSection, sections]);
 
   const sortedChats = useMemo(
     () => [...chats].sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)),
@@ -132,40 +120,34 @@ export default function Dashboard({
     }
   }, [onSelectChat, selectedChatId, sortedChats]);
 
-  const activeParts = useMemo(
-    () => myParts.filter((part) => (part.status || 'active') === 'active'),
-    [myParts],
-  );
-  const soldParts = useMemo(
-    () => myParts.filter((part) => (part.status || 'active') === 'sold'),
-    [myParts],
-  );
+  const activeParts = useMemo(() => myParts.filter((part) => (part.status || 'active') === 'active'), [myParts]);
+  const reservedParts = useMemo(() => myParts.filter((part) => (part.status || 'active') === 'reserved'), [myParts]);
+  const soldParts = useMemo(() => myParts.filter((part) => (part.status || 'active') === 'sold'), [myParts]);
+
   const visibleParts = useMemo(() => {
-    if (partsFilter === 'active') {
-      return activeParts;
-    }
-    if (partsFilter === 'sold') {
-      return soldParts;
-    }
+    if (partsFilter === 'active') return activeParts;
+    if (partsFilter === 'reserved') return reservedParts;
+    if (partsFilter === 'sold') return soldParts;
     return myParts;
-  }, [activeParts, myParts, partsFilter, soldParts]);
+  }, [activeParts, myParts, partsFilter, reservedParts, soldParts]);
+
+  const myTrust = sellerTrustByUid[user.uid] || {
+    ratingAverage: 0,
+    ratingCount: 0,
+    soldCount: 0,
+    verified: false,
+  };
 
   const handleAvatarChange = async (event) => {
     const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
+    if (!file) return;
     setProcessingAvatar(true);
-
     try {
       const avatarBase64 = await resizeImageToBase64(file, {
         maxWidth: 360,
         maxHeight: 360,
         quality: 0.6,
       });
-
       setProfileForm((prev) => ({ ...prev, avatarBase64 }));
       onToast('Profilbild vorbereitet.', 'success');
     } catch (error) {
@@ -179,12 +161,9 @@ export default function Dashboard({
   const handleProfileSubmit = async (event) => {
     event.preventDefault();
     setSavingProfile(true);
-
     try {
       await onSaveProfile(profileForm);
       onThemeChange(profileForm.themePreference || theme);
-    } catch (error) {
-      console.error(error);
     } finally {
       setSavingProfile(false);
     }
@@ -193,34 +172,33 @@ export default function Dashboard({
   const handlePasswordSubmit = async (event) => {
     event.preventDefault();
     setSavingPassword(true);
-
     try {
       await onChangePassword(passwordForm);
       setPasswordForm({ currentPassword: '', newPassword: '' });
-    } catch (error) {
-      console.error(error);
     } finally {
       setSavingPassword(false);
     }
   };
 
+  const handleModerationUpdate = async (report, status) => {
+    await onModerateReport(report, {
+      status,
+      note: moderationNotes[report.id] || '',
+    });
+  };
+
   return (
     <div className="pf-page">
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <header className="mb-5 rounded-[1.75rem] pf-glass p-4 sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <header className="mb-5 rounded-[1.75rem] pf-glass p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--pf-primary)]">
-                Dashboard
-              </p>
-              <h1 className="mt-2 text-2xl font-black text-[var(--pf-text)]">Dein Bereich</h1>
-              <p className="mt-2 text-sm text-[var(--pf-muted)]">
-                Links wählen, rechts bearbeiten. Auf dem Smartphone als Dropdown-Menü.
-              </p>
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--pf-primary)]">Dashboard</p>
+              <h1 className="text-2xl font-black text-[var(--pf-text)]">Dein Bereich</h1>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
               <ThemeSwitcher value={theme} onChange={onThemeChange} compact />
-              <button type="button" onClick={onOpenMarketplace} className="pf-button-secondary px-4 py-2.5 text-sm">
+              <button type="button" onClick={onOpenMarketplace} className="pf-button-secondary px-4 py-2 text-sm">
                 Zum Marktplatz
               </button>
             </div>
@@ -230,44 +208,18 @@ export default function Dashboard({
         <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="rounded-[1.5rem] pf-card p-4">
             <div className="mb-4 flex items-center gap-3">
-              <Avatar
-                name={profileForm.displayName || user.displayName || user.email}
-                src={profileForm.avatarBase64}
-                size="md"
-              />
+              <Avatar name={profileForm.displayName || user.displayName || user.email} src={profileForm.avatarBase64} size="md" />
               <div className="min-w-0">
-                <p className="truncate font-bold text-[var(--pf-text)]">
-                  {profileForm.displayName || user.displayName || user.email}
-                </p>
+                <p className="truncate font-bold text-[var(--pf-text)]">{profileForm.displayName || user.displayName || user.email}</p>
                 <p className="truncate text-sm text-[var(--pf-muted)]">{user.email}</p>
               </div>
             </div>
 
-            <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-[1rem] bg-[var(--pf-surface-2)] px-3 py-3">
-                <p className="text-[var(--pf-muted)]">Aktiv</p>
-                <p className="mt-1 font-black text-[var(--pf-text)]">{activeParts.length}</p>
-              </div>
-              <div className="rounded-[1rem] bg-[var(--pf-surface-2)] px-3 py-3">
-                <p className="text-[var(--pf-muted)]">Verkauft</p>
-                <p className="mt-1 font-black text-[var(--pf-text)]">{soldParts.length}</p>
-              </div>
-              <div className="rounded-[1rem] bg-[var(--pf-surface-2)] px-3 py-3">
-                <p className="text-[var(--pf-muted)]">Chats</p>
-                <p className="mt-1 font-black text-[var(--pf-text)]">{sortedChats.length}</p>
-              </div>
-            </div>
-
-            <div className="mb-4 rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface)]/80 p-3">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--pf-primary)]">
-                Markt-Überblick
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <OverviewTile label="Inserate" value={totalPartsCount} />
-                <OverviewTile label="Kategorien" value={categoriesCount} />
-                <OverviewTile label="Eigene" value={myParts.length} />
-                <OverviewTile label="Verkauft" value={totalSoldCount} />
-              </div>
+            <div className="mb-4 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-xl bg-[var(--pf-surface-2)] px-3 py-2">Aktiv: <b>{activeParts.length}</b></div>
+              <div className="rounded-xl bg-[var(--pf-surface-2)] px-3 py-2">Reserviert: <b>{reservedParts.length}</b></div>
+              <div className="rounded-xl bg-[var(--pf-surface-2)] px-3 py-2">Verkauft: <b>{soldParts.length}</b></div>
+              <div className="rounded-xl bg-[var(--pf-surface-2)] px-3 py-2">Rating: <b>{myTrust.ratingCount ? `${myTrust.ratingAverage.toFixed(1)}★` : 'Neu'}</b></div>
             </div>
 
             <div className="mb-4 lg:hidden">
@@ -281,72 +233,46 @@ export default function Dashboard({
             </div>
 
             <div className="hidden space-y-2 lg:block">
-              <NavItem active={activeSection === 'profile'} onClick={() => setActiveSection('profile')} label="Profil" />
-              <NavItem active={activeSection === 'password'} onClick={() => setActiveSection('password')} label="Passwort" />
-              <NavItem active={activeSection === 'favorites'} onClick={() => setActiveSection('favorites')} label="Merkliste" badge={favoriteParts.length || undefined} />
-              <NavItem active={activeSection === 'chats'} onClick={() => setActiveSection('chats')} label="Chats" badge={unreadChatsCount || undefined} />
-              <NavItem active={activeSection === 'parts'} onClick={() => setActiveSection('parts')} label="Eigene Inserate" badge={myParts.length || undefined} />
+              <SectionButton active={activeSection === 'profile'} onClick={() => setActiveSection('profile')} label="Profil" />
+              <SectionButton active={activeSection === 'password'} onClick={() => setActiveSection('password')} label="Passwort" />
+              <SectionButton active={activeSection === 'favorites'} onClick={() => setActiveSection('favorites')} label="Merkliste" badge={favoriteParts.length || undefined} />
+              <SectionButton active={activeSection === 'chats'} onClick={() => setActiveSection('chats')} label="Chats" badge={unreadChatsCount || undefined} />
+              <SectionButton active={activeSection === 'parts'} onClick={() => setActiveSection('parts')} label="Eigene Inserate" badge={myParts.length || undefined} />
+              {isModerator ? (
+                <SectionButton active={activeSection === 'moderation'} onClick={() => setActiveSection('moderation')} label="Moderation" badge={moderationOpenCount || undefined} />
+              ) : null}
             </div>
           </aside>
 
           <section>
             {activeSection === 'profile' ? (
               <section className="rounded-[1.5rem] pf-card p-5">
-                <div className="mb-5">
-                  <h2 className="text-xl font-bold text-[var(--pf-text)]">Profil</h2>
-                  <p className="mt-1 text-sm text-[var(--pf-muted)]">
-                    Name, WhatsApp, Chatfreigabe, Theme und Profilbild.
-                  </p>
-                </div>
-
+                <h2 className="mb-3 text-xl font-bold text-[var(--pf-text)]">Profil</h2>
                 <form onSubmit={handleProfileSubmit} className="space-y-4">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <Avatar name={profileForm.displayName || user.displayName || user.email} src={profileForm.avatarBase64} size="lg" />
-                    <div className="flex flex-wrap gap-3">
-                      <button type="button" onClick={() => avatarInputRef.current?.click()} className="pf-button-secondary px-4 py-3 text-sm">
-                        Profilbild wählen
-                      </button>
-                      {profileForm.avatarBase64 ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileForm((prev) => ({ ...prev, avatarBase64: '' }));
-                            if (avatarInputRef.current) avatarInputRef.current.value = '';
-                          }}
-                          className="pf-button-danger px-4 py-3 text-sm"
-                        >
-                          Entfernen
-                        </button>
-                      ) : null}
-                    </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button type="button" onClick={() => avatarInputRef.current?.click()} className="pf-button-secondary px-4 py-3 text-sm">
+                      Profilbild waehlen
+                    </button>
                     <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
                   </div>
-
                   <div className="grid gap-4 md:grid-cols-2">
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Anzeigename</span>
-                      <input
-                        type="text"
-                        value={profileForm.displayName}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, displayName: event.target.value }))}
-                        className="pf-input px-4 py-3"
-                        required
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">WhatsApp Nummer</span>
-                      <input
-                        type="text"
-                        value={profileForm.whatsappNumber}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, whatsappNumber: event.target.value }))}
-                        placeholder="41790000000"
-                        className="pf-input px-4 py-3"
-                      />
-                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.displayName}
+                      onChange={(event) => setProfileForm((prev) => ({ ...prev, displayName: event.target.value }))}
+                      className="pf-input px-4 py-3"
+                      placeholder="Anzeigename"
+                      required
+                    />
+                    <input
+                      type="text"
+                      value={profileForm.whatsappNumber}
+                      onChange={(event) => setProfileForm((prev) => ({ ...prev, whatsappNumber: event.target.value }))}
+                      className="pf-input px-4 py-3"
+                      placeholder="WhatsApp Nummer"
+                    />
                   </div>
-
-                  <label className="flex items-center gap-3 rounded-[1rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3 text-sm text-[var(--pf-text)]">
+                  <label className="flex items-center gap-3 text-sm">
                     <input
                       type="checkbox"
                       checked={profileForm.chatEnabled}
@@ -354,22 +280,13 @@ export default function Dashboard({
                     />
                     In-App Chat erlauben
                   </label>
-
-                  <div className="rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-4">
-                    <p className="mb-3 text-sm font-semibold text-[var(--pf-text)]">Design</p>
-                    <ThemeSwitcher
-                      value={profileForm.themePreference}
-                      onChange={(value) => setProfileForm((prev) => ({ ...prev, themePreference: value }))}
-                      compact
-                    />
-                  </div>
-
-                  <div className="rounded-[1rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3 text-sm text-[var(--pf-muted)]">
-                    Konto: <span className="font-semibold text-[var(--pf-text)]">{user.email}</span>
-                  </div>
-
-                  <button type="submit" disabled={savingProfile || processingAvatar} className="pf-button-primary px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60">
-                    {savingProfile ? 'Speichert…' : 'Profil speichern'}
+                  <ThemeSwitcher
+                    value={profileForm.themePreference}
+                    onChange={(value) => setProfileForm((prev) => ({ ...prev, themePreference: value }))}
+                    compact
+                  />
+                  <button type="submit" disabled={savingProfile || processingAvatar} className="pf-button-primary px-4 py-3 disabled:opacity-60">
+                    {savingProfile ? 'Speichert...' : 'Profil speichern'}
                   </button>
                 </form>
               </section>
@@ -377,39 +294,27 @@ export default function Dashboard({
 
             {activeSection === 'password' ? (
               <section className="rounded-[1.5rem] pf-card p-5">
-                <div className="mb-5">
-                  <h2 className="text-xl font-bold text-[var(--pf-text)]">Passwort ändern</h2>
-                  <p className="mt-1 text-sm text-[var(--pf-muted)]">
-                    Aus Sicherheitsgründen wird dein aktuelles Passwort benötigt.
-                  </p>
-                </div>
-
+                <h2 className="mb-3 text-xl font-bold text-[var(--pf-text)]">Passwort aendern</h2>
                 <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Aktuelles Passwort</span>
-                    <input
-                      type="password"
-                      value={passwordForm.currentPassword}
-                      onChange={(event) => setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))}
-                      className="pf-input px-4 py-3"
-                      required
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">Neues Passwort</span>
-                    <input
-                      type="password"
-                      minLength={6}
-                      value={passwordForm.newPassword}
-                      onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))}
-                      className="pf-input px-4 py-3"
-                      required
-                    />
-                  </label>
-
-                  <button type="submit" disabled={savingPassword} className="pf-button-secondary px-4 py-3 disabled:cursor-not-allowed disabled:opacity-60">
-                    {savingPassword ? 'Ändert…' : 'Passwort aktualisieren'}
+                  <input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))}
+                    className="pf-input px-4 py-3"
+                    placeholder="Aktuelles Passwort"
+                    required
+                  />
+                  <input
+                    type="password"
+                    minLength={6}
+                    value={passwordForm.newPassword}
+                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))}
+                    className="pf-input px-4 py-3"
+                    placeholder="Neues Passwort"
+                    required
+                  />
+                  <button type="submit" disabled={savingPassword} className="pf-button-secondary px-4 py-3 disabled:opacity-60">
+                    {savingPassword ? 'Aendert...' : 'Passwort aktualisieren'}
                   </button>
                 </form>
               </section>
@@ -417,40 +322,21 @@ export default function Dashboard({
 
             {activeSection === 'favorites' ? (
               <section className="rounded-[1.5rem] pf-card p-5">
-                <div className="mb-5 flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[var(--pf-text)]">Merkliste</h2>
-                    <p className="mt-1 text-sm text-[var(--pf-muted)]">Gespeicherte Inserate für später.</p>
-                  </div>
-                  <div className="rounded-full bg-[var(--pf-primary-soft)] px-3 py-1 text-sm font-semibold text-[var(--pf-primary)]">
-                    {favoriteParts.length}
-                  </div>
-                </div>
-
+                <h2 className="mb-3 text-xl font-bold text-[var(--pf-text)]">Merkliste</h2>
                 {favoriteParts.length === 0 ? (
-                  <div className="rounded-[1.25rem] border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-6 text-sm text-[var(--pf-muted)]">
+                  <div className="rounded-xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4 text-sm text-[var(--pf-muted)]">
                     Noch keine Favoriten gespeichert.
                   </div>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
                     {favoriteParts.map((part) => (
-                      <div key={part.id} className="overflow-hidden rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)]">
-                        {part.imagesBase64?.[0] || part.imageBase64 ? (
-                          <img src={part.imagesBase64?.[0] || part.imageBase64} alt={part.title} className="h-36 w-full object-cover" />
-                        ) : null}
-                        <div className="space-y-3 p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <h3 className="font-bold text-[var(--pf-text)]">{part.title}</h3>
-                            <StatusBadge status={part.status || 'active'} />
-                          </div>
-                          <p className="text-sm text-[var(--pf-muted)]">{part.brand} • {part.model}</p>
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-base font-black text-[var(--pf-text)]">
-                              {currencyFormatter.format(Number(part.price || 0))}
-                            </span>
-                            <span className="text-xs text-[var(--pf-muted)]">{part.location || 'Ohne Standort'}</span>
-                          </div>
+                      <div key={part.id} className="rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="font-semibold text-[var(--pf-text)]">{part.title}</p>
+                          <StatusBadge status={part.status || 'active'} />
                         </div>
+                        <p className="text-sm text-[var(--pf-muted)]">{part.brand} • {part.model}</p>
+                        <p className="mt-2 font-black text-[var(--pf-text)]">{currencyFormatter.format(Number(part.price || 0))}</p>
                       </div>
                     ))}
                   </div>
@@ -460,17 +346,11 @@ export default function Dashboard({
 
             {activeSection === 'chats' ? (
               <section className="rounded-[1.5rem] pf-card p-5">
-                <div className="mb-5 flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[var(--pf-text)]">Chats</h2>
-                    <p className="mt-1 text-sm text-[var(--pf-muted)]">Direkte Kontakte zu Käufern und Verkäufern.</p>
-                  </div>
-                </div>
-
+                <h2 className="mb-3 text-xl font-bold text-[var(--pf-text)]">Chats</h2>
                 <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
                   <div className="space-y-3">
                     {sortedChats.length === 0 ? (
-                      <div className="rounded-[1.25rem] border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-6 text-sm text-[var(--pf-muted)]">
+                      <div className="rounded-xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4 text-sm text-[var(--pf-muted)]">
                         Noch keine Chats vorhanden.
                       </div>
                     ) : (
@@ -478,38 +358,27 @@ export default function Dashboard({
                         const otherUid = chat.participantIds?.find((uid) => uid !== user.uid) || '';
                         const otherProfile = profilesByUid[otherUid];
                         const unread = Array.isArray(chat.unreadBy) && chat.unreadBy.includes(user.uid);
-
                         return (
                           <button
                             key={chat.id}
                             type="button"
                             onClick={() => onSelectChat(chat.id)}
-                            className={`w-full rounded-[1.25rem] border p-4 text-left transition ${
+                            className={`w-full rounded-xl border p-4 text-left ${
                               selectedChat?.id === chat.id
                                 ? 'border-[var(--pf-primary)] bg-[var(--pf-primary-soft)]'
-                                : 'border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] hover:bg-[var(--pf-surface-3)]'
+                                : 'border-[color:var(--pf-border)] bg-[var(--pf-surface-2)]'
                             }`}
                           >
-                            <div className="flex items-center gap-3">
-                              <Avatar name={otherProfile?.displayName || chat.participantNames?.[otherUid] || 'Kontakt'} src={otherProfile?.avatarBase64 || ''} size="sm" />
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="truncate font-semibold text-[var(--pf-text)]">
-                                    {otherProfile?.displayName || chat.participantNames?.[otherUid] || 'Kontakt'}
-                                  </p>
-                                  {unread ? <span className="rounded-full bg-[var(--pf-danger)] px-2 py-0.5 text-[11px] text-white">Neu</span> : null}
-                                </div>
-                                <p className="mt-1 truncate text-sm text-[var(--pf-muted)]">{chat.partTitle || 'Inserat'}</p>
-                                <p className="mt-1 truncate text-xs text-[var(--pf-muted)]">{chat.lastMessage || 'Noch keine Nachricht'}</p>
-                                <p className="mt-2 text-[11px] text-[var(--pf-muted)]">{formatShortDateTime(chat.updatedAt)}</p>
-                              </div>
-                            </div>
+                            <p className="truncate font-semibold text-[var(--pf-text)]">{otherProfile?.displayName || chat.participantNames?.[otherUid] || 'Kontakt'}</p>
+                            <p className="mt-1 truncate text-sm text-[var(--pf-muted)]">{chat.partTitle || 'Inserat'}</p>
+                            <p className="mt-1 truncate text-xs text-[var(--pf-muted)]">{chat.lastMessage || 'Noch keine Nachricht'}</p>
+                            <p className="mt-1 text-[11px] text-[var(--pf-muted)]">{formatShortDateTime(chat.updatedAt)}</p>
+                            {unread ? <span className="mt-2 inline-block rounded-full bg-[var(--pf-danger)] px-2 py-0.5 text-[11px] text-white">Neu</span> : null}
                           </button>
                         );
                       })
                     )}
                   </div>
-
                   <ChatPanel chat={selectedChat} currentUser={user} onToast={onToast} profilesByUid={profilesByUid} />
                 </div>
               </section>
@@ -517,85 +386,72 @@ export default function Dashboard({
 
             {activeSection === 'parts' ? (
               <section className="rounded-[1.5rem] pf-card p-5">
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl font-bold text-[var(--pf-text)]">Eigene Inserate</h2>
-                    <p className="mt-1 text-sm text-[var(--pf-muted)]">
-                      Verkauft-Status setzen, bearbeiten oder löschen. Der Editor öffnet sich im Marktplatz.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPartsFilter('all')}
-                      className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                        partsFilter === 'all'
-                          ? 'bg-[var(--pf-primary)] text-[#04111a]'
-                          : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)]'
-                      }`}
-                    >
-                      Alle
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPartsFilter('active')}
-                      className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                        partsFilter === 'active'
-                          ? 'bg-[var(--pf-primary)] text-[#04111a]'
-                          : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)]'
-                      }`}
-                    >
-                      Aktiv
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPartsFilter('sold')}
-                      className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                        partsFilter === 'sold'
-                          ? 'bg-[var(--pf-primary)] text-[#04111a]'
-                          : 'bg-[var(--pf-surface-2)] text-[var(--pf-text)]'
-                      }`}
-                    >
-                      Verkauft
-                    </button>
-                  </div>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setPartsFilter('all')} className="pf-button-secondary px-4 py-2 text-sm">Alle</button>
+                  <button type="button" onClick={() => setPartsFilter('active')} className="pf-button-secondary px-4 py-2 text-sm">Aktiv</button>
+                  <button type="button" onClick={() => setPartsFilter('reserved')} className="pf-button-secondary px-4 py-2 text-sm">Reserviert</button>
+                  <button type="button" onClick={() => setPartsFilter('sold')} className="pf-button-secondary px-4 py-2 text-sm">Verkauft</button>
                 </div>
-
                 {visibleParts.length === 0 ? (
-                  <div className="rounded-[1.25rem] border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-6 text-sm text-[var(--pf-muted)]">
+                  <div className="rounded-xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4 text-sm text-[var(--pf-muted)]">
                     Keine Inserate in dieser Ansicht.
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {visibleParts.map((part) => (
-                      <div key={part.id} className="flex flex-col gap-4 rounded-[1.25rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3">
-                          {part.imagesBase64?.[0] || part.imageBase64 ? (
-                            <img src={part.imagesBase64?.[0] || part.imageBase64} alt={part.title} className="h-16 w-16 rounded-[1rem] object-cover" />
-                          ) : null}
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-semibold text-[var(--pf-text)]">{part.title}</p>
-                              <StatusBadge status={part.status || 'active'} />
-                            </div>
-                            <p className="mt-1 text-sm text-[var(--pf-muted)]">{part.brand} • {part.model}</p>
-                            <p className="mt-1 text-sm font-semibold text-[var(--pf-text)]">{currencyFormatter.format(Number(part.price || 0))}</p>
+                      <div key={part.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
+                        <div>
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-[var(--pf-text)]">{part.title}</p>
+                            <StatusBadge status={part.status || 'active'} />
                           </div>
+                          <p className="text-sm text-[var(--pf-muted)]">{part.brand} • {part.model}</p>
+                          <p className="mt-1 font-semibold text-[var(--pf-text)]">{currencyFormatter.format(Number(part.price || 0))}</p>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onSetPartStatus(part, (part.status || 'active') === 'sold' ? 'active' : 'sold')}
-                            className="pf-button-secondary px-4 py-2.5 text-sm"
-                          >
-                            {(part.status || 'active') === 'sold' ? 'Aktivieren' : 'Verkaufen'}
-                          </button>
-                          <button type="button" onClick={() => onEditPart(part)} className="pf-button-secondary px-4 py-2.5 text-sm">
-                            Bearbeiten
-                          </button>
-                          <button type="button" onClick={() => onDeletePart(part)} className="pf-button-danger px-4 py-2.5 text-sm">
-                            Löschen
-                          </button>
+                          <button type="button" onClick={() => onSetPartStatus(part, 'active')} className="pf-button-secondary px-3 py-2 text-sm">Aktiv</button>
+                          <button type="button" onClick={() => onSetPartStatus(part, 'reserved')} className="pf-button-secondary px-3 py-2 text-sm">Reservieren</button>
+                          <button type="button" onClick={() => onSetPartStatus(part, 'sold')} className="pf-button-secondary px-3 py-2 text-sm">Verkaufen</button>
+                          <button type="button" onClick={() => onEditPart(part)} className="pf-button-secondary px-3 py-2 text-sm">Bearbeiten</button>
+                          <button type="button" onClick={() => onDeletePart(part)} className="pf-button-danger px-3 py-2 text-sm">Loeschen</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : null}
+
+            {activeSection === 'moderation' && isModerator ? (
+              <section className="rounded-[1.5rem] pf-card p-5">
+                <h2 className="mb-3 text-xl font-bold text-[var(--pf-text)]">Moderation</h2>
+                {reportsLoading ? (
+                  <div className="rounded-xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4 text-sm text-[var(--pf-muted)]">
+                    Meldungen werden geladen...
+                  </div>
+                ) : reports.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4 text-sm text-[var(--pf-muted)]">
+                    Keine Meldungen vorhanden.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {reports.map((report) => (
+                      <div key={report.id} className="rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
+                        <p className="font-semibold text-[var(--pf-text)]">{report.partTitle || report.partId}</p>
+                        <p className="mt-1 text-sm text-[var(--pf-muted)]">Grund: {report.reason}</p>
+                        <p className="mt-1 text-sm text-[var(--pf-muted)]">Status: {report.status}</p>
+                        {report.details ? <p className="mt-2 text-sm text-[var(--pf-text)]">{report.details}</p> : null}
+                        <textarea
+                          rows="2"
+                          value={moderationNotes[report.id] || ''}
+                          onChange={(event) => setModerationNotes((prev) => ({ ...prev, [report.id]: event.target.value }))}
+                          placeholder="Moderationsnotiz"
+                          className="pf-textarea mt-3 px-4 py-3"
+                        />
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button type="button" onClick={() => handleModerationUpdate(report, 'in_review')} className="pf-button-secondary px-3 py-2 text-sm">In Pruefung</button>
+                          <button type="button" onClick={() => handleModerationUpdate(report, 'resolved')} className="pf-button-secondary px-3 py-2 text-sm">Geloest</button>
+                          <button type="button" onClick={() => handleModerationUpdate(report, 'rejected')} className="pf-button-danger px-3 py-2 text-sm">Ablehnen</button>
                         </div>
                       </div>
                     ))}

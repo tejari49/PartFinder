@@ -9,6 +9,12 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isModerator() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator';
+    }
+
     function optionalString(data, field) {
       return !(field in data) || data[field] is string;
     }
@@ -30,7 +36,23 @@ service cloud.firestore {
     }
 
     function optionalStatus(data, field) {
-      return !(field in data) || (data[field] is string && data[field].matches('^(active|sold)$'));
+      return !(field in data) || (data[field] is string && data[field].matches('^(active|reserved|sold)$'));
+    }
+
+    function optionalYear(data, field) {
+      return !(field in data) || (data[field] is number && data[field] >= 1900 && data[field] <= 2100);
+    }
+
+    function isReason(value) {
+      return value is string && value.matches('^(spam|duplicate|fraud|offensive|wrong_category|other)$');
+    }
+
+    function isReportStatus(value) {
+      return value is string && value.matches('^(open|in_review|resolved|rejected)$');
+    }
+
+    function isOfferStatus(value) {
+      return value is string && value.matches('^(pending|accepted|declined)$');
     }
 
     match /categories/{categoryId} {
@@ -44,12 +66,37 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if signedIn();
       allow create, update: if isSelf(userId)
+        && request.resource.data.keys().hasOnly([
+          'displayName',
+          'email',
+          'whatsappNumber',
+          'avatarBase64',
+          'themePreference',
+          'chatEnabled',
+          'updatedAt',
+          'lastLoginAt',
+          'emailVerified',
+          'role',
+          'trustedSeller',
+        ])
         && optionalString(request.resource.data, 'displayName')
         && optionalString(request.resource.data, 'email')
         && optionalString(request.resource.data, 'whatsappNumber')
         && optionalString(request.resource.data, 'avatarBase64')
         && optionalString(request.resource.data, 'themePreference')
-        && optionalBool(request.resource.data, 'chatEnabled');
+        && optionalBool(request.resource.data, 'chatEnabled')
+        && optionalTimestamp(request.resource.data, 'updatedAt')
+        && optionalTimestamp(request.resource.data, 'lastLoginAt')
+        && optionalString(request.resource.data, 'role')
+        && optionalBool(request.resource.data, 'trustedSeller')
+        && (!('role' in request.resource.data)
+          || (exists(/databases/$(database)/documents/users/$(userId))
+            && request.resource.data.role == resource.data.role))
+        && (!('trustedSeller' in request.resource.data)
+          || (exists(/databases/$(database)/documents/users/$(userId))
+            && request.resource.data.trustedSeller == resource.data.trustedSeller))
+        && (!(request.resource.data.emailVerified is bool)
+          || request.resource.data.emailVerified == request.auth.token.email_verified);
       allow delete: if false;
     }
 
@@ -84,7 +131,16 @@ service cloud.firestore {
         && optionalBool(request.resource.data, 'shippingAvailable')
         && optionalBool(request.resource.data, 'pickupAvailable')
         && optionalStatus(request.resource.data, 'status')
-        && optionalTimestamp(request.resource.data, 'soldAt');
+        && optionalTimestamp(request.resource.data, 'soldAt')
+        && optionalString(request.resource.data, 'oemNumber')
+        && optionalString(request.resource.data, 'engineCode')
+        && optionalString(request.resource.data, 'vehicleGeneration')
+        && optionalYear(request.resource.data, 'yearFrom')
+        && optionalYear(request.resource.data, 'yearTo')
+        && (!(('yearFrom' in request.resource.data) && ('yearTo' in request.resource.data))
+          || request.resource.data.yearFrom <= request.resource.data.yearTo)
+        && optionalString(request.resource.data, 'reservedForUid')
+        && optionalTimestamp(request.resource.data, 'reservedAt');
       allow update: if signedIn()
         && resource.data.sellerUid == request.auth.uid
         && request.resource.data.sellerUid == request.auth.uid
@@ -105,7 +161,16 @@ service cloud.firestore {
         && optionalBool(request.resource.data, 'shippingAvailable')
         && optionalBool(request.resource.data, 'pickupAvailable')
         && optionalStatus(request.resource.data, 'status')
-        && optionalTimestamp(request.resource.data, 'soldAt');
+        && optionalTimestamp(request.resource.data, 'soldAt')
+        && optionalString(request.resource.data, 'oemNumber')
+        && optionalString(request.resource.data, 'engineCode')
+        && optionalString(request.resource.data, 'vehicleGeneration')
+        && optionalYear(request.resource.data, 'yearFrom')
+        && optionalYear(request.resource.data, 'yearTo')
+        && (!(('yearFrom' in request.resource.data) && ('yearTo' in request.resource.data))
+          || request.resource.data.yearFrom <= request.resource.data.yearTo)
+        && optionalString(request.resource.data, 'reservedForUid')
+        && optionalTimestamp(request.resource.data, 'reservedAt');
       allow delete: if signedIn() && resource.data.sellerUid == request.auth.uid;
     }
 
@@ -128,9 +193,71 @@ service cloud.firestore {
           && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds
           && request.resource.data.senderUid == request.auth.uid
           && request.resource.data.text is string
-          && request.resource.data.senderName is string;
-        allow update, delete: if false;
+          && request.resource.data.senderName is string
+          && optionalString(request.resource.data, 'type')
+          && optionalNumber(request.resource.data, 'offerAmount')
+          && optionalString(request.resource.data, 'offerByUid')
+          && (!(request.resource.data.type == 'offer')
+            || (request.resource.data.offerAmount is number
+              && request.resource.data.offerAmount > 0
+              && request.resource.data.offerByUid == request.auth.uid
+              && request.resource.data.offerStatus == 'pending'));
+        allow update: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds
+          && resource.data.type == 'offer'
+          && request.resource.data.type == 'offer'
+          && request.resource.data.senderUid == resource.data.senderUid
+          && request.resource.data.senderName == resource.data.senderName
+          && request.resource.data.text == resource.data.text
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.offerAmount == resource.data.offerAmount
+          && request.resource.data.offerByUid == resource.data.offerByUid
+          && isOfferStatus(request.resource.data.offerStatus)
+          && resource.data.offerStatus == 'pending'
+          && request.resource.data.offerStatus != 'pending'
+          && request.auth.uid != resource.data.offerByUid;
+        allow delete: if false;
       }
+    }
+
+    match /ratings/{ratingId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.raterUid == request.auth.uid
+        && request.resource.data.sellerUid is string
+        && request.resource.data.sellerUid != request.auth.uid
+        && request.resource.data.partId is string
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && optionalString(request.resource.data, 'comment')
+        && ratingId == (request.resource.data.partId + '_' + request.auth.uid);
+      allow update, delete: if isModerator();
+    }
+
+    match /reports/{reportId} {
+      allow read: if signedIn()
+        && (resource.data.reporterUid == request.auth.uid || isModerator());
+      allow create: if signedIn()
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.partId is string
+        && request.resource.data.sellerUid is string
+        && request.resource.data.sellerUid != request.auth.uid
+        && isReason(request.resource.data.reason)
+        && optionalString(request.resource.data, 'details')
+        && request.resource.data.status == 'open'
+        && reportId == (request.resource.data.partId + '_' + request.auth.uid);
+      allow update: if isModerator()
+        && request.resource.data.reporterUid == resource.data.reporterUid
+        && request.resource.data.partId == resource.data.partId
+        && request.resource.data.sellerUid == resource.data.sellerUid
+        && request.resource.data.reason == resource.data.reason
+        && request.resource.data.details == resource.data.details
+        && isReportStatus(request.resource.data.status)
+        && optionalString(request.resource.data, 'moderatedByUid')
+        && optionalTimestamp(request.resource.data, 'moderatedAt')
+        && optionalString(request.resource.data, 'moderationNote');
+      allow delete: if false;
     }
   }
 }
