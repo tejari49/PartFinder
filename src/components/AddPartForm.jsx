@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { validateCategoryInput } from '../utils/categoryValidation';
-import { getAllCarBrands } from '../utils/carBrands';
+import { getAllCarBrands, getBrandSuggestions } from '../utils/carBrands';
 import { normalizeConditionValue } from '../utils/format';
 import { resizeImageToBase64 } from '../utils/image';
 
@@ -46,7 +46,8 @@ const text = {
     condition: 'Condition',
     price: 'Price (EUR)',
     brandRegister: 'Car brand register',
-    brandHint: (count) => `${count} brands available. You can still type your own brand.`,
+    brandHint: (count) => `${count} brands available. Without input, top 10 are shown.`,
+    noBrandMatch: 'No matching brand found. Keep typing or enter manually.',
     brand: 'Brand',
     brandPlaceholder: 'Select or type brand (e.g. BMW)',
     model: 'Model',
@@ -90,16 +91,17 @@ const text = {
     cancel: 'Abbrechen',
     category: 'Kategorie',
     categoryPlaceholder: 'z. B. Turbolader',
-    categoryHint: 'Bestehende Kategorie wählen oder neue Autoteile-Kategorie eingeben.',
+    categoryHint: 'Bestehende Kategorie w\u00e4hlen oder neue Autoteile-Kategorie eingeben.',
     condition: 'Zustand',
     price: 'Preis (EUR)',
     brandRegister: 'Automarken-Register',
-    brandHint: (count) => `${count} Marken verfügbar. Du kannst trotzdem frei tippen.`,
+    brandHint: (count) => `${count} Marken verf\u00fcgbar. Ohne Eingabe werden die Top 10 gezeigt.`,
+    noBrandMatch: 'Keine passende Marke gefunden. Weiter tippen oder manuell eingeben.',
     brand: 'Marke',
-    brandPlaceholder: 'Marke wählen oder tippen (z. B. BMW)',
+    brandPlaceholder: 'Marke w\u00e4hlen oder tippen (z. B. BMW)',
     model: 'Modell',
     modelPlaceholder: 'z. B. 320d E90',
-    compatibility: 'Kompatibilität',
+    compatibility: 'Kompatibilit\u00e4t',
     oem: 'OEM Nummer',
     oemPlaceholder: 'z. B. 11657790806',
     engineCode: 'Motorcode',
@@ -111,23 +113,23 @@ const text = {
     title: 'Titel',
     titlePlaceholder: 'Original BMW Turbolader 320d',
     location: 'Standort',
-    locationPlaceholder: 'Zurich / Winterthur / Bern',
+    locationPlaceholder: 'Z\u00fcrich / Winterthur / Bern',
     shippingPickup: 'Versand / Abholung',
-    shipping: 'Versand möglich',
-    pickup: 'Abholung möglich',
+    shipping: 'Versand m\u00f6glich',
+    pickup: 'Abholung m\u00f6glich',
     description: 'Beschreibung',
-    descriptionPlaceholder: 'Details, Kompatibilität, Mängel, Versandhinweise...',
+    descriptionPlaceholder: 'Details, Kompatibilit\u00e4t, M\u00e4ngel, Versandhinweise...',
     images: 'Bilder',
     imageHint: `Maximal ${MAX_IMAGES} Bilder. Das erste Bild wird als Vorschau genutzt.`,
     soldHint: 'Dieses Inserat ist aktuell als verkauft markiert. Du kannst es wieder auf aktiv setzen.',
     processing: 'Bilder werden verarbeitet...',
     saving: 'Speichert...',
     update: 'Inserat aktualisieren',
-    publish: 'Inserat veröffentlichen',
-    imagesTooLarge: 'Bilder sind zusammen zu gross. Bitte kleinere Bilder wählen.',
+    publish: 'Inserat ver\u00f6ffentlichen',
+    imagesTooLarge: 'Bilder sind zusammen zu gross. Bitte kleinere Bilder w\u00e4hlen.',
     imagesPrepared: (count) => `${count} Bild${count > 1 ? 'er' : ''} vorbereitet.`,
     imageError: 'Bilder konnten nicht verarbeitet werden.',
-    invalidCategory: 'Kategorie ist ungültig.',
+    invalidCategory: 'Kategorie ist ung\u00fcltig.',
     atLeastOneImage: 'Mindestens ein Bild ist Pflicht.',
     preview: (index) => `Vorschau ${index}`,
   },
@@ -145,8 +147,10 @@ export default function AddPartForm({
   const [form, setForm] = useState(initialState);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showBrandSuggestions, setShowBrandSuggestions] = useState(false);
   const fileInputRef = useRef(null);
   const availableBrands = useMemo(() => getAllCarBrands(), []);
+  const brandSuggestions = useMemo(() => getBrandSuggestions(form.brand, 10), [form.brand]);
 
   useEffect(() => {
     if (!editingPart) {
@@ -271,6 +275,11 @@ export default function AddPartForm({
     }
   };
 
+  const handleBrandSelect = (brand) => {
+    updateField('brand', brand);
+    setShowBrandSuggestions(false);
+  };
+
   return (
     <section className="rounded-[1.65rem] pf-card p-4 sm:p-5">
       <div className="mb-4 flex items-start justify-between gap-3">
@@ -348,20 +357,42 @@ export default function AddPartForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">{t.brand}</span>
-            <input
-              type="text"
-              list="partfinder-brands"
-              value={form.brand}
-              onChange={(event) => updateField('brand', event.target.value)}
-              placeholder={t.brandPlaceholder}
-              className="pf-input px-4 py-3"
-              required
-            />
-            <datalist id="partfinder-brands">
-              {availableBrands.map((brand) => (
-                <option key={brand} value={brand} />
-              ))}
-            </datalist>
+            <div className="relative">
+              <input
+                type="text"
+                value={form.brand}
+                onChange={(event) => {
+                  updateField('brand', event.target.value);
+                  setShowBrandSuggestions(true);
+                }}
+                onFocus={() => setShowBrandSuggestions(true)}
+                onBlur={() => window.setTimeout(() => setShowBrandSuggestions(false), 120)}
+                placeholder={t.brandPlaceholder}
+                className="pf-input px-4 py-3"
+                autoComplete="off"
+                required
+              />
+
+              {showBrandSuggestions ? (
+                <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-[1rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface)] p-1 shadow-xl">
+                  {brandSuggestions.length > 0 ? (
+                    brandSuggestions.map((brand) => (
+                      <button
+                        key={brand}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => handleBrandSelect(brand)}
+                        className="w-full rounded-[0.75rem] px-3 py-2 text-left text-sm text-[var(--pf-text)] hover:bg-[var(--pf-surface-2)]"
+                      >
+                        {brand}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="px-3 py-2 text-sm text-[var(--pf-muted)]">{t.noBrandMatch}</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
             <p className="mt-2 text-xs text-[var(--pf-muted)]">
               {t.brandRegister}: {t.brandHint(availableBrands.length)}
             </p>
@@ -552,3 +583,4 @@ export default function AddPartForm({
     </section>
   );
 }
+

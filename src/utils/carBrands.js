@@ -20,7 +20,7 @@ const CAR_BRANDS = [
   'Chery',
   'Chevrolet',
   'Chrysler',
-  'Citroën',
+  'Citro\u00ebn',
   'Cupra',
   'Dacia',
   'Daewoo',
@@ -81,14 +81,14 @@ const CAR_BRANDS = [
   'Saab',
   'SEAT',
   'Seres',
-  'Škoda',
+  '\u0160koda',
   'Smart',
   'SsangYong',
   'Subaru',
   'Suzuki',
   'Tata',
   'Tesla',
-  'Tofaş',
+  'Tofa\u015f',
   'Toyota',
   'Trabant',
   'TVR',
@@ -109,5 +109,52 @@ const uniqueSortedBrands = [...new Set(CAR_BRANDS)].sort((a, b) =>
   a.localeCompare(b, 'de-CH', { sensitivity: 'base' }),
 );
 
+const TOP_CAR_BRANDS = [
+  'Volkswagen',
+  'BMW',
+  'Mercedes-Benz',
+  'Audi',
+  '\u0160koda',
+  'Toyota',
+  'Ford',
+  'Renault',
+  'Peugeot',
+  'Opel',
+];
+
+const normalize = (value = '') =>
+  value
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export const getAllCarBrands = () => uniqueSortedBrands;
 
+export const getTopCarBrands = () =>
+  TOP_CAR_BRANDS.filter((brand) => uniqueSortedBrands.includes(brand));
+
+export const getBrandSuggestions = (query = '', limit = 10) => {
+  const needle = normalize(query);
+
+  if (!needle) {
+    return getTopCarBrands().slice(0, limit);
+  }
+
+  const startsWith = [];
+  const includes = [];
+
+  uniqueSortedBrands.forEach((brand) => {
+    const normalizedBrand = normalize(brand);
+    if (!normalizedBrand.includes(needle)) return;
+    if (normalizedBrand.startsWith(needle)) {
+      startsWith.push(brand);
+      return;
+    }
+    includes.push(brand);
+  });
+
+  return [...startsWith, ...includes].slice(0, limit);
+};
