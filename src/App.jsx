@@ -425,7 +425,7 @@ export default function App() {
     if (userProfile?.themePreference && userProfile.themePreference !== theme) {
       setTheme(userProfile.themePreference);
     }
-  }, [theme, userProfile?.themePreference]);
+  }, [userProfile?.themePreference]);
 
   const editingPart = useMemo(
     () => parts.find((part) => part.id === editingPartId) || null,
