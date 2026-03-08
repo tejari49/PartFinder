@@ -595,8 +595,6 @@ export default function App() {
       const commonFields = {
         category: normalizedCategory,
         categorySlug,
-        brandMainCategory: toOptionalTrimmed(payload.brandMainCategory).toLowerCase(),
-        brandGroup: toOptionalTrimmed(payload.brandGroup).toLowerCase(),
         brand: payload.brand.trim(),
         model: payload.model.trim(),
         title: payload.title.trim(),

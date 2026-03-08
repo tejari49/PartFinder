@@ -1,18 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { validateCategoryInput } from '../utils/categoryValidation';
-import {
-  findBrandSelection,
-  getBrandGroups,
-  getBrandMainCategories,
-  getBrandsBySelection,
-} from '../utils/carBrands';
+import { getAllCarBrands } from '../utils/carBrands';
 import { normalizeConditionValue } from '../utils/format';
 import { resizeImageToBase64 } from '../utils/image';
 
 const initialState = {
   category: '',
-  brandMainCategory: 'europe',
-  brandGroup: 'all',
   brand: '',
   model: '',
   oemNumber: '',
@@ -52,11 +45,8 @@ const text = {
     categoryHint: 'Choose an existing category or enter a new automotive one.',
     condition: 'Condition',
     price: 'Price (EUR)',
-    brandPresets: 'Common brands by region (Europe + Balkans)',
-    mainCategory: 'Region',
-    brandGroup: 'Usage group',
-    allGroups: 'All groups',
-    brandHint: (count) => `${count} common brands available. You can still type your own brand.`,
+    brandRegister: 'Car brand register',
+    brandHint: (count) => `${count} brands available. You can still type your own brand.`,
     brand: 'Brand',
     brandPlaceholder: 'Select or type brand (e.g. BMW)',
     model: 'Model',
@@ -100,19 +90,16 @@ const text = {
     cancel: 'Abbrechen',
     category: 'Kategorie',
     categoryPlaceholder: 'z. B. Turbolader',
-    categoryHint: 'Bestehende Kategorie waehlen oder neue Autoteile-Kategorie eingeben.',
+    categoryHint: 'Bestehende Kategorie wählen oder neue Autoteile-Kategorie eingeben.',
     condition: 'Zustand',
     price: 'Preis (EUR)',
-    brandPresets: 'Haeufige Marken nach Region (Europa + Balkan)',
-    mainCategory: 'Region',
-    brandGroup: 'Nutzungsgruppe',
-    allGroups: 'Alle Gruppen',
-    brandHint: (count) => `${count} haeufige Marken verfuegbar. Du kannst trotzdem frei tippen.`,
+    brandRegister: 'Automarken-Register',
+    brandHint: (count) => `${count} Marken verfügbar. Du kannst trotzdem frei tippen.`,
     brand: 'Marke',
-    brandPlaceholder: 'Marke waehlen oder tippen (z. B. BMW)',
+    brandPlaceholder: 'Marke wählen oder tippen (z. B. BMW)',
     model: 'Modell',
     modelPlaceholder: 'z. B. 320d E90',
-    compatibility: 'Kompatibilitaet',
+    compatibility: 'Kompatibilität',
     oem: 'OEM Nummer',
     oemPlaceholder: 'z. B. 11657790806',
     engineCode: 'Motorcode',
@@ -126,21 +113,21 @@ const text = {
     location: 'Standort',
     locationPlaceholder: 'Zurich / Winterthur / Bern',
     shippingPickup: 'Versand / Abholung',
-    shipping: 'Versand moeglich',
-    pickup: 'Abholung moeglich',
+    shipping: 'Versand möglich',
+    pickup: 'Abholung möglich',
     description: 'Beschreibung',
-    descriptionPlaceholder: 'Details, Kompatibilitaet, Maengel, Versandhinweise...',
+    descriptionPlaceholder: 'Details, Kompatibilität, Mängel, Versandhinweise...',
     images: 'Bilder',
     imageHint: `Maximal ${MAX_IMAGES} Bilder. Das erste Bild wird als Vorschau genutzt.`,
     soldHint: 'Dieses Inserat ist aktuell als verkauft markiert. Du kannst es wieder auf aktiv setzen.',
     processing: 'Bilder werden verarbeitet...',
     saving: 'Speichert...',
     update: 'Inserat aktualisieren',
-    publish: 'Inserat veroeffentlichen',
-    imagesTooLarge: 'Bilder sind zusammen zu gross. Bitte kleinere Bilder waehlen.',
+    publish: 'Inserat veröffentlichen',
+    imagesTooLarge: 'Bilder sind zusammen zu gross. Bitte kleinere Bilder wählen.',
     imagesPrepared: (count) => `${count} Bild${count > 1 ? 'er' : ''} vorbereitet.`,
     imageError: 'Bilder konnten nicht verarbeitet werden.',
-    invalidCategory: 'Kategorie ist ungueltig.',
+    invalidCategory: 'Kategorie ist ungültig.',
     atLeastOneImage: 'Mindestens ein Bild ist Pflicht.',
     preview: (index) => `Vorschau ${index}`,
   },
@@ -159,32 +146,7 @@ export default function AddPartForm({
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
-  const baseMainCategoryOptions = useMemo(() => getBrandMainCategories('en'), []);
-
-  const mainCategoryOptions = useMemo(
-    () => getBrandMainCategories(language),
-    [language],
-  );
-
-  const activeMainCategory = useMemo(() => {
-    const valid = baseMainCategoryOptions.some((entry) => entry.key === form.brandMainCategory);
-    return valid ? form.brandMainCategory : 'europe';
-  }, [baseMainCategoryOptions, form.brandMainCategory]);
-
-  const brandGroupOptions = useMemo(
-    () => getBrandGroups(activeMainCategory, language),
-    [activeMainCategory, language],
-  );
-
-  const activeBrandGroup = useMemo(() => {
-    const valid = brandGroupOptions.some((entry) => entry.key === form.brandGroup);
-    return valid ? form.brandGroup : 'all';
-  }, [brandGroupOptions, form.brandGroup]);
-
-  const availableBrands = useMemo(
-    () => getBrandsBySelection(activeMainCategory, activeBrandGroup),
-    [activeBrandGroup, activeMainCategory],
-  );
+  const availableBrands = useMemo(() => getAllCarBrands(), []);
 
   useEffect(() => {
     if (!editingPart) {
@@ -195,12 +157,8 @@ export default function AddPartForm({
       return;
     }
 
-    const inferredSelection = findBrandSelection(editingPart.brand || '');
-
     setForm({
       category: editingPart.category || '',
-      brandMainCategory: editingPart.brandMainCategory || inferredSelection.mainCategory,
-      brandGroup: editingPart.brandGroup || inferredSelection.group,
       brand: editingPart.brand || '',
       model: editingPart.model || '',
       oemNumber: editingPart.oemNumber || '',
@@ -294,8 +252,6 @@ export default function AddPartForm({
       await onSubmit(
         {
           ...form,
-          brandMainCategory: activeMainCategory,
-          brandGroup: activeBrandGroup,
           condition: normalizeConditionValue(form.condition),
           price: Number(form.price),
         },
@@ -389,49 +345,6 @@ export default function AddPartForm({
           </label>
         </div>
 
-        <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
-          <p className="mb-3 text-sm font-semibold text-[var(--pf-text)]">{t.brandPresets}</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">{t.mainCategory}</span>
-              <select
-                value={activeMainCategory}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    brandMainCategory: event.target.value,
-                    brandGroup: 'all',
-                  }))
-                }
-                className="pf-select px-4 py-3"
-              >
-                {mainCategoryOptions.map((entry) => (
-                  <option key={entry.key} value={entry.key}>
-                    {entry.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">{t.brandGroup}</span>
-              <select
-                value={activeBrandGroup}
-                onChange={(event) => updateField('brandGroup', event.target.value)}
-                className="pf-select px-4 py-3"
-              >
-                <option value="all">{t.allGroups}</option>
-                {brandGroupOptions.map((group) => (
-                  <option key={group.key} value={group.key}>
-                    {group.label} ({group.brandCount})
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <p className="mt-3 text-xs text-[var(--pf-muted)]">{t.brandHint(availableBrands.length)}</p>
-        </div>
-
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-[var(--pf-text)]">{t.brand}</span>
@@ -449,6 +362,9 @@ export default function AddPartForm({
                 <option key={brand} value={brand} />
               ))}
             </datalist>
+            <p className="mt-2 text-xs text-[var(--pf-muted)]">
+              {t.brandRegister}: {t.brandHint(availableBrands.length)}
+            </p>
           </label>
 
           <label className="block">
