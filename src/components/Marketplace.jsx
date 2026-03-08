@@ -520,21 +520,28 @@ export default function Marketplace({
     <>
       <div className="pf-page">
         <div className="mx-auto max-w-7xl px-4 py-4 pb-28 sm:px-6 lg:px-8 xl:pb-8">
-          <header className="mb-6 rounded-[1.6rem] pf-glass p-4 sm:p-5">
+          <header className="mb-6 rounded-[1.9rem] pf-glass pf-market-hero p-5 sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
+              <div className="relative z-[1]">
                 <div className="pf-hero-badge px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em]">
                   {t.secure}
                 </div>
-                <img
-                  src={logoSrc}
-                  alt="PartFinder"
-                  className="mt-3 h-16 w-16 rounded-2xl border border-[color:var(--pf-border)] object-cover shadow-lg"
-                />
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--pf-muted)]">{t.subtitle}</p>
+                <div className="mt-3 flex items-center gap-4 sm:gap-5">
+                  <div className="pf-logo-frame p-1.5">
+                    <img
+                      src={logoSrc}
+                      alt="PartFinder"
+                      className="h-24 w-24 rounded-[1.1rem] object-cover sm:h-28 sm:w-28"
+                    />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-black tracking-tight text-[var(--pf-text)] sm:text-4xl">PartFinder</h1>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--pf-muted)]">{t.subtitle}</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:justify-end">
+              <div className="relative z-[1] flex flex-wrap items-center gap-2 sm:gap-3 lg:justify-end">
                 <LanguageSwitcher value={language} onChange={onLanguageChange} />
                 <ThemeSwitcher value={theme} onChange={onThemeChange} compact />
                 <button type="button" onClick={onOpenDashboard} className="pf-button-secondary px-4 py-2.5 text-sm">
