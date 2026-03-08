@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 
 export default function ModalShell({ title, children, onClose, maxWidth = 'max-w-5xl' }) {
+  const closeLabel = typeof document !== 'undefined' && document.documentElement.lang === 'de' ? 'Schliessen' : 'Close';
+
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
@@ -25,7 +27,7 @@ export default function ModalShell({ title, children, onClose, maxWidth = 'max-w
         <div className="flex items-center justify-between border-b pf-divider px-6 py-4">
           <h3 className="text-lg font-bold text-[var(--pf-text)]">{title}</h3>
           <button type="button" onClick={onClose} className="pf-button-secondary px-4 py-2 text-sm">
-            Close
+            {closeLabel}
           </button>
         </div>
 

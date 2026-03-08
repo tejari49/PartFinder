@@ -30,6 +30,71 @@ import { getFallbackDisplayName, normalizeCategoryName, slugify } from './utils/
 
 const ALLOWED_PART_STATUSES = ['active', 'reserved', 'sold'];
 const REPORT_REASONS = ['spam', 'duplicate', 'fraud', 'offensive', 'wrong_category', 'other'];
+const LANGUAGE_KEY = 'partfinder-language';
+
+const toastTranslations = {
+  'User profile could not be initialized.': 'Benutzerprofil konnte nicht initialisiert werden.',
+  'Categories could not be loaded.': 'Kategorien konnten nicht geladen werden.',
+  'Parts could not be loaded.': 'Teile konnten nicht geladen werden.',
+  'User profiles could not be loaded.': 'Benutzerprofile konnten nicht geladen werden.',
+  'Chats could not be loaded.': 'Chats konnten nicht geladen werden.',
+  'Favorites could not be loaded.': 'Favoriten konnten nicht geladen werden.',
+  'Ratings could not be loaded.': 'Bewertungen konnten nicht geladen werden.',
+  'Reports could not be loaded.': 'Meldungen konnten nicht geladen werden.',
+  'Please sign in first.': 'Bitte zuerst anmelden.',
+  'Please enter a valid category.': 'Bitte eine gueltige Kategorie angeben.',
+  'At least one image is required.': 'Mindestens ein Bild ist erforderlich.',
+  'Year-from must be between 1900 and 2100.': 'Baujahr-von muss zwischen 1900 und 2100 liegen.',
+  'Year-to must be between 1900 and 2100.': 'Baujahr-bis muss zwischen 1900 und 2100 liegen.',
+  'Year-from cannot be greater than year-to.': 'Baujahr-von darf nicht groesser als Baujahr-bis sein.',
+  'Listing updated.': 'Inserat wurde aktualisiert.',
+  'Part listed successfully.': 'Autoteil wurde erfolgreich veroeffentlicht.',
+  'Save failed. Check Firestore rules and indexes.': 'Speichern fehlgeschlagen. Pruefe Firestore-Regeln und Indexe.',
+  'Only your own listings can be edited.': 'Nur eigene Inserate koennen bearbeitet werden.',
+  'Listing opened in edit mode.': 'Inserat im Bearbeitungsmodus geoeffnet.',
+  'Only your own listings can be deleted.': 'Nur eigene Inserate koennen geloescht werden.',
+  'Listing deleted.': 'Inserat wurde geloescht.',
+  'Listing could not be deleted.': 'Inserat konnte nicht geloescht werden.',
+  'Only your own listings can be changed.': 'Nur eigene Inserate koennen geaendert werden.',
+  'Unknown status.': 'Unbekannter Status.',
+  'Listing marked as sold.': 'Inserat als verkauft markiert.',
+  'Listing reserved.': 'Inserat wurde reserviert.',
+  'Listing set back to active.': 'Inserat wieder aktiv geschaltet.',
+  'Status could not be changed.': 'Status konnte nicht geaendert werden.',
+  'Removed from favorites.': 'Aus der Merkliste entfernt.',
+  'Added to favorites.': 'Zur Merkliste hinzugefuegt.',
+  'Favorites could not be updated.': 'Merkliste konnte nicht aktualisiert werden.',
+  'Please enter a valid display name.': 'Bitte einen gueltigen Anzeigenamen eingeben.',
+  'Profile updated.': 'Profil wurde aktualisiert.',
+  'Profile could not be saved.': 'Profil konnte nicht gespeichert werden.',
+  'Password change is not available for this account.': 'Passwortaenderung ist fuer dieses Konto nicht verfuegbar.',
+  'Password changed successfully.': 'Passwort erfolgreich geaendert.',
+  'Current password is incorrect.': 'Das aktuelle Passwort ist falsch.',
+  'New password is too weak.': 'Das neue Passwort ist zu schwach.',
+  'Password could not be changed.': 'Passwort konnte nicht geaendert werden.',
+  'You cannot rate your own listings.': 'Eigene Inserate koennen nicht bewertet werden.',
+  'Rating must be between 1 and 5 stars.': 'Bewertung muss zwischen 1 und 5 Sternen liegen.',
+  'You already rated this seller for this listing.': 'Du hast diesen Verkaeufer fuer das Inserat bereits bewertet.',
+  'Ratings are available only after chat contact.': 'Bewertungen sind erst nach einem Chatkontakt moeglich.',
+  'Rating saved.': 'Bewertung wurde gespeichert.',
+  'Rating could not be saved.': 'Bewertung konnte nicht gespeichert werden.',
+  'You cannot report your own listings.': 'Eigene Inserate koennen nicht gemeldet werden.',
+  'Please select a valid report reason.': 'Bitte einen gueltigen Meldungsgrund waehlen.',
+  'Report sent to moderation.': 'Meldung wurde an die Moderation gesendet.',
+  'Report could not be saved (possibly already reported).': 'Meldung konnte nicht gespeichert werden (evtl. bereits gemeldet).',
+  'Only moderators can process reports.': 'Nur Moderatoren duerfen Meldungen bearbeiten.',
+  'Invalid moderation status.': 'Ungueltiger Moderationsstatus.',
+  'Report updated.': 'Meldung wurde aktualisiert.',
+  'Moderation update failed.': 'Moderationsupdate fehlgeschlagen.',
+  'No chat needed for your own listing.': 'Fuer dein eigenes Inserat ist kein Chat noetig.',
+  'This listing is already marked as sold.': 'Dieses Inserat ist bereits als verkauft markiert.',
+  'This listing is currently reserved for another user.': 'Dieses Inserat ist aktuell fuer einen anderen Nutzer reserviert.',
+  'The seller has disabled in-app chat.': 'Der Verkaeufer hat den In-App Chat deaktiviert.',
+  'Chat opened.': 'Chat geoeffnet.',
+  'Chat could not be started.': 'Chat konnte nicht gestartet werden.',
+  'Signed out successfully.': 'Erfolgreich abgemeldet.',
+  'Sign out failed.': 'Abmeldung fehlgeschlagen.',
+};
 
 const getChatIdForPart = (partId, firstUid, secondUid) => {
   const ids = [firstUid, secondUid].sort();
@@ -66,6 +131,11 @@ const toOptionalTrimmed = (value) => (value ? value.trim() : '');
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('partfinder-theme') || 'amoled');
+  const [language, setLanguage] = useState(() => {
+    const stored = localStorage.getItem(LANGUAGE_KEY);
+    if (stored === 'de' || stored === 'en') return stored;
+    return navigator.language?.toLowerCase().startsWith('de') ? 'de' : 'en';
+  });
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [parts, setParts] = useState([]);
@@ -79,25 +149,31 @@ export default function App() {
   const [partsLoading, setPartsLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [reportsLoading, setReportsLoading] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [activeView, setActiveView] = useState('marketplace');
   const [editingPartId, setEditingPartId] = useState('');
   const [toasts, setToasts] = useState([]);
 
   const pushToast = useCallback((message, type = 'info') => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const localizedMessage = language === 'de' ? toastTranslations[message] || message : message;
 
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message: localizedMessage, type }]);
 
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 3600);
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('partfinder-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('lang', language);
+    localStorage.setItem(LANGUAGE_KEY, language);
+  }, [language]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -118,7 +194,7 @@ export default function App() {
       setRatings([]);
       setReports([]);
       setSelectedChatId('');
-      setSelectedCategory('All');
+      setSelectedCategory('all');
       setActiveView('marketplace');
       setEditingPartId('');
       setPartsLoading(false);
@@ -128,7 +204,7 @@ export default function App() {
     }
 
     const userRef = doc(db, 'users', user.uid);
-    const fallbackDisplayName = getFallbackDisplayName(user);
+    const fallbackDisplayName = getFallbackDisplayName(user, language);
 
     setDoc(
       userRef,
@@ -146,7 +222,7 @@ export default function App() {
     });
 
     return undefined;
-  }, [user, pushToast]);
+  }, [user, pushToast, language]);
 
   useEffect(() => {
     if (!user) {
@@ -356,7 +432,7 @@ export default function App() {
   );
 
   const filteredParts = useMemo(() => {
-    if (selectedCategory === 'All') {
+    if (selectedCategory === 'all') {
       return parts;
     }
 
@@ -455,7 +531,7 @@ export default function App() {
       return;
     }
 
-    const categoryCheck = validateCategoryInput(payload.category, categories);
+    const categoryCheck = validateCategoryInput(payload.category, categories, language);
     if (!categoryCheck.ok) {
       pushToast(categoryCheck.reason, 'error');
       throw new Error('invalid-category');
@@ -533,7 +609,7 @@ export default function App() {
         pickupAvailable: payload.pickupAvailable !== false,
         sellerUid: user.uid,
         sellerEmail: user.email || '',
-        sellerDisplayName: userProfile?.displayName || getFallbackDisplayName(user),
+        sellerDisplayName: userProfile?.displayName || getFallbackDisplayName(user, language),
         status: preservedStatus,
         soldAt,
         reservedForUid,
@@ -896,7 +972,7 @@ export default function App() {
     }
 
     const chatId = getChatIdForPart(part.id, user.uid, part.sellerUid);
-    const buyerName = userProfile?.displayName || getFallbackDisplayName(user);
+    const buyerName = userProfile?.displayName || getFallbackDisplayName(user, language);
     const sellerName = sellerProfile?.displayName || part.sellerDisplayName || part.sellerEmail || 'Seller';
 
     try {
@@ -946,13 +1022,19 @@ export default function App() {
         <div className="flex min-h-screen items-center justify-center px-6">
           <div className="w-full max-w-md rounded-[1.75rem] pf-card p-8 text-center">
             <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-[var(--pf-primary-soft)]" />
-            <p className="text-lg font-semibold text-[var(--pf-text)]">Loading auto parts marketplace...</p>
-            <p className="mt-2 text-sm text-[var(--pf-muted)]">Checking authentication status.</p>
+            <p className="text-lg font-semibold text-[var(--pf-text)]">
+              {language === 'de' ? 'Autoteile-Marktplatz laedt...' : 'Loading auto parts marketplace...'}
+            </p>
+            <p className="mt-2 text-sm text-[var(--pf-muted)]">
+              {language === 'de' ? 'Auth-Status wird geprueft.' : 'Checking authentication status.'}
+            </p>
           </div>
         </div>
       ) : user ? (
         activeView === 'dashboard' ? (
           <Dashboard
+            language={language}
+            onLanguageChange={setLanguage}
             user={user}
             profile={userProfile}
             chats={chats}
@@ -986,6 +1068,8 @@ export default function App() {
           />
         ) : (
           <Marketplace
+            language={language}
+            onLanguageChange={setLanguage}
             user={user}
             profile={userProfile}
             parts={filteredParts}
@@ -1019,7 +1103,13 @@ export default function App() {
           />
         )
       ) : (
-        <Auth onToast={pushToast} theme={theme} onThemeChange={setTheme} />
+        <Auth
+          language={language}
+          onLanguageChange={setLanguage}
+          onToast={pushToast}
+          theme={theme}
+          onThemeChange={setTheme}
+        />
       )}
 
       <Toast toasts={toasts} />

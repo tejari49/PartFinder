@@ -104,13 +104,35 @@ const normalize = (value = '') =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\u00DF/g, 'ss');
 
-export function validateCategoryInput(rawValue, existingCategories = []) {
+const text = {
+  en: {
+    enterCategory: 'Please enter a category.',
+    length: 'Category must be between 3 and 40 characters.',
+    charset: 'Category may only contain letters, numbers, spaces, and + - & / .',
+    inappropriate: 'Category contains inappropriate terms.',
+    automotiveOnly: 'New categories must clearly relate to vehicle parts or automotive technology.',
+    existing: 'Existing category selected.',
+    validNew: 'New automotive category is valid.',
+  },
+  de: {
+    enterCategory: 'Bitte eine Kategorie eingeben.',
+    length: 'Kategorie muss zwischen 3 und 40 Zeichen lang sein.',
+    charset: 'Kategorie darf nur Buchstaben, Zahlen, Leerzeichen sowie + - & / . enthalten.',
+    inappropriate: 'Kategorie enthaelt ungeeignete Begriffe.',
+    automotiveOnly: 'Neue Kategorien muessen klar mit Autoteilen oder Fahrzeugtechnik zu tun haben.',
+    existing: 'Bestehende Kategorie ausgewaehlt.',
+    validNew: 'Neue Autoteile-Kategorie ist gueltig.',
+  },
+};
+
+export function validateCategoryInput(rawValue, existingCategories = [], language = 'en') {
+  const t = language === 'de' ? text.de : text.en;
   const value = rawValue.trim();
 
   if (!value) {
     return {
       ok: false,
-      reason: 'Please enter a category.',
+      reason: t.enterCategory,
       isExisting: false,
     };
   }
@@ -118,7 +140,7 @@ export function validateCategoryInput(rawValue, existingCategories = []) {
   if (value.length < 3 || value.length > 40) {
     return {
       ok: false,
-      reason: 'Category must be between 3 and 40 characters.',
+      reason: t.length,
       isExisting: false,
     };
   }
@@ -126,7 +148,7 @@ export function validateCategoryInput(rawValue, existingCategories = []) {
   if (!/^[\p{L}\p{N}][\p{L}\p{N} +&/.\-]*$/u.test(value)) {
     return {
       ok: false,
-      reason: 'Category may only contain letters, numbers, spaces, and + - & / .',
+      reason: t.charset,
       isExisting: false,
     };
   }
@@ -138,7 +160,7 @@ export function validateCategoryInput(rawValue, existingCategories = []) {
   if (bannedFragments.some((fragment) => normalizedValue.includes(fragment))) {
     return {
       ok: false,
-      reason: 'Category contains inappropriate terms.',
+      reason: t.inappropriate,
       isExisting,
     };
   }
@@ -149,7 +171,7 @@ export function validateCategoryInput(rawValue, existingCategories = []) {
     if (!hasAutomotiveKeyword) {
       return {
         ok: false,
-        reason: 'New categories must clearly relate to vehicle parts or automotive technology.',
+        reason: t.automotiveOnly,
         isExisting: false,
       };
     }
@@ -157,9 +179,7 @@ export function validateCategoryInput(rawValue, existingCategories = []) {
 
   return {
     ok: true,
-    reason: isExisting
-      ? 'Existing category selected.'
-      : 'New automotive category is valid.',
+    reason: isExisting ? t.existing : t.validNew,
     isExisting,
   };
 }

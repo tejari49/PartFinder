@@ -1,29 +1,45 @@
-export const currencyFormatter = new Intl.NumberFormat('en-GB', {
-  style: 'currency',
-  currency: 'EUR',
-});
+const LANGUAGE_KEY = 'partfinder-language';
 
-export const formatDateTime = (timestamp, fallback = 'Just now') => {
+const getStoredLanguage = () => {
+  if (typeof window === 'undefined') return 'en';
+  const value = window.localStorage.getItem(LANGUAGE_KEY);
+  return value === 'de' ? 'de' : 'en';
+};
+
+const getLocale = (language = getStoredLanguage()) => (language === 'de' ? 'de-DE' : 'en-GB');
+
+export const currencyFormatter = {
+  format(value, language = getStoredLanguage()) {
+    return new Intl.NumberFormat(getLocale(language), {
+      style: 'currency',
+      currency: 'EUR',
+    }).format(value);
+  },
+};
+
+export const formatDateTime = (timestamp, fallback = null, language = getStoredLanguage()) => {
   const date = timestamp?.toDate?.() || (timestamp instanceof Date ? timestamp : null);
 
   if (!date) {
-    return fallback;
+    if (fallback) return fallback;
+    return language === 'de' ? 'Gerade eben' : 'Just now';
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat(getLocale(language), {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date);
 };
 
-export const formatShortDateTime = (timestamp, fallback = 'Just now') => {
+export const formatShortDateTime = (timestamp, fallback = null, language = getStoredLanguage()) => {
   const date = timestamp?.toDate?.() || (timestamp instanceof Date ? timestamp : null);
 
   if (!date) {
-    return fallback;
+    if (fallback) return fallback;
+    return language === 'de' ? 'Gerade eben' : 'Just now';
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat(getLocale(language), {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(date);
@@ -48,9 +64,9 @@ export const slugify = (value = '') =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
-export const getFallbackDisplayName = (user) => {
+export const getFallbackDisplayName = (user, language = getStoredLanguage()) => {
   if (!user) {
-    return 'User';
+    return language === 'de' ? 'Nutzer' : 'User';
   }
 
   if (user.displayName?.trim()) {
@@ -61,7 +77,7 @@ export const getFallbackDisplayName = (user) => {
     return user.email.split('@')[0];
   }
 
-  return 'User';
+  return language === 'de' ? 'Nutzer' : 'User';
 };
 
 export const getInitials = (name = '') => {
@@ -102,9 +118,22 @@ export const normalizeConditionValue = (value = '') => {
     .replace(/\s+/g, ' ');
 
   if (conditionMap[key]) {
-    const normalized = conditionMap[key];
-    return normalized;
+    return conditionMap[key];
   }
 
   return value.trim() || 'Used';
+};
+
+export const getConditionLabel = (condition, language = getStoredLanguage()) => {
+  const normalized = normalizeConditionValue(condition);
+  if (language !== 'de') return normalized;
+
+  const map = {
+    New: 'Neu',
+    'Like new': 'Neuwertig',
+    Used: 'Gebraucht',
+    'Defective / DIY': 'Defekt / Bastler',
+    Refurbished: 'Generalueberholt',
+  };
+  return map[normalized] || normalized;
 };

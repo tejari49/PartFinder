@@ -13,7 +13,67 @@ import { db } from '../firebase';
 import Avatar from './Avatar';
 import { currencyFormatter, formatShortDateTime, getFallbackDisplayName } from '../utils/format';
 
-export default function ChatPanel({ chat, currentUser, onToast, profilesByUid }) {
+const text = {
+  en: {
+    loadError: 'Messages could not be loaded.',
+    enterMessage: 'Please enter a message first.',
+    sendError: 'Message could not be sent.',
+    validOffer: 'Please enter a valid offer amount.',
+    offerSent: 'Offer sent.',
+    offerSendError: 'Offer could not be sent.',
+    offerUpdateError: 'Offer could not be updated.',
+    offerAccepted: 'Offer accepted',
+    offerDeclined: 'Offer declined',
+    emptyState: 'Select a chat or start a new conversation from a listing.',
+    inAppChat: 'In-app chat',
+    contact: 'Contact',
+    listing: 'Listing',
+    loading: 'Loading messages...',
+    noMessages: 'No messages yet. Start the conversation.',
+    you: 'You',
+    offer: 'Offer',
+    status: 'Status',
+    pending: 'pending',
+    accept: 'Accept',
+    decline: 'Decline',
+    typeMessage: 'Type a message...',
+    send: 'Send',
+    sending: 'Sending...',
+    offerInEur: 'Offer in EUR',
+    sendOffer: 'Send offer',
+  },
+  de: {
+    loadError: 'Nachrichten konnten nicht geladen werden.',
+    enterMessage: 'Bitte zuerst eine Nachricht eingeben.',
+    sendError: 'Nachricht konnte nicht gesendet werden.',
+    validOffer: 'Bitte einen gueltigen Angebotsbetrag eingeben.',
+    offerSent: 'Angebot gesendet.',
+    offerSendError: 'Angebot konnte nicht gesendet werden.',
+    offerUpdateError: 'Angebot konnte nicht aktualisiert werden.',
+    offerAccepted: 'Angebot angenommen',
+    offerDeclined: 'Angebot abgelehnt',
+    emptyState: 'Waehle einen Chat oder starte einen neuen Kontakt aus einem Inserat.',
+    inAppChat: 'In-App Chat',
+    contact: 'Kontakt',
+    listing: 'Inserat',
+    loading: 'Nachrichten werden geladen...',
+    noMessages: 'Noch keine Nachrichten. Starte die Unterhaltung.',
+    you: 'Du',
+    offer: 'Angebot',
+    status: 'Status',
+    pending: 'offen',
+    accept: 'Annehmen',
+    decline: 'Ablehnen',
+    typeMessage: 'Nachricht schreiben...',
+    send: 'Senden',
+    sending: 'Sende...',
+    offerInEur: 'Angebot in EUR',
+    sendOffer: 'Angebot senden',
+  },
+};
+
+export default function ChatPanel({ language = 'en', chat, currentUser, onToast, profilesByUid }) {
+  const t = language === 'de' ? text.de : text.en;
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -55,13 +115,13 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
       },
       (error) => {
         console.error(error);
-        onToast('Messages could not be loaded.', 'error');
+        onToast(t.loadError, 'error');
         setLoading(false);
       },
     );
 
     return () => unsubscribe();
-  }, [chat?.id, onToast]);
+  }, [chat?.id, onToast, t.loadError]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -89,14 +149,11 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
   const handleSendMessage = async (event) => {
     event.preventDefault();
 
-    if (!chat?.id || !currentUser?.uid) {
-      return;
-    }
+    if (!chat?.id || !currentUser?.uid) return;
 
-    const text = messageText.trim();
-
-    if (!text) {
-      onToast('Please enter a message first.', 'error');
+    const textValue = messageText.trim();
+    if (!textValue) {
+      onToast(t.enterMessage, 'error');
       return;
     }
 
@@ -106,10 +163,10 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
       const senderName =
         profilesByUid[currentUser.uid]?.displayName ||
         chat.participantNames?.[currentUser.uid] ||
-        getFallbackDisplayName(currentUser);
+        getFallbackDisplayName(currentUser, language);
 
       await addDoc(collection(db, 'chats', chat.id, 'messages'), {
-        text,
+        text: textValue,
         type: 'text',
         senderUid: currentUser.uid,
         senderName,
@@ -117,7 +174,7 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
       });
 
       await updateDoc(doc(db, 'chats', chat.id), {
-        lastMessage: text,
+        lastMessage: textValue,
         lastMessageSenderUid: currentUser.uid,
         updatedAt: serverTimestamp(),
         unreadBy: otherUid ? [otherUid] : [],
@@ -128,20 +185,18 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
       setMessageText('');
     } catch (error) {
       console.error(error);
-      onToast('Message could not be sent.', 'error');
+      onToast(t.sendError, 'error');
     } finally {
       setSending(false);
     }
   };
 
   const handleSendOffer = async () => {
-    if (!chat?.id || !currentUser?.uid || !canSendOffer) {
-      return;
-    }
+    if (!chat?.id || !currentUser?.uid || !canSendOffer) return;
 
     const amount = Number(offerAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      onToast('Please enter a valid offer amount.', 'error');
+      onToast(t.validOffer, 'error');
       return;
     }
 
@@ -150,9 +205,9 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
       const senderName =
         profilesByUid[currentUser.uid]?.displayName ||
         chat.participantNames?.[currentUser.uid] ||
-        getFallbackDisplayName(currentUser);
+        getFallbackDisplayName(currentUser, language);
       const roundedAmount = Math.round(amount * 100) / 100;
-      const offerText = `Offer: ${currencyFormatter.format(roundedAmount)}`;
+      const offerText = `${t.offer}: ${currencyFormatter.format(roundedAmount, language)}`;
 
       await addDoc(collection(db, 'chats', chat.id, 'messages'), {
         text: offerText,
@@ -174,19 +229,17 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
       });
 
       setOfferAmount('');
-      onToast('Offer sent.', 'success');
+      onToast(t.offerSent, 'success');
     } catch (error) {
       console.error(error);
-      onToast('Offer could not be sent.', 'error');
+      onToast(t.offerSendError, 'error');
     } finally {
       setSending(false);
     }
   };
 
   const handleOfferDecision = async (message, nextStatus) => {
-    if (!chat?.id || !currentUser?.uid || !message?.id) {
-      return;
-    }
+    if (!chat?.id || !currentUser?.uid || !message?.id) return;
 
     setProcessingOfferId(message.id);
     try {
@@ -196,10 +249,10 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
         respondedByUid: currentUser.uid,
       });
 
-      const statusText = nextStatus === 'accepted' ? 'Offer accepted' : 'Offer declined';
+      const statusText = nextStatus === 'accepted' ? t.offerAccepted : t.offerDeclined;
 
       await updateDoc(doc(db, 'chats', chat.id), {
-        lastMessage: `${statusText}: ${currencyFormatter.format(Number(message.offerAmount || 0))}`,
+        lastMessage: `${statusText}: ${currencyFormatter.format(Number(message.offerAmount || 0), language)}`,
         lastMessageSenderUid: currentUser.uid,
         updatedAt: serverTimestamp(),
         unreadBy: message.offerByUid ? [message.offerByUid] : [],
@@ -216,7 +269,7 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
       }
     } catch (error) {
       console.error(error);
-      onToast('Offer could not be updated.', 'error');
+      onToast(t.offerUpdateError, 'error');
     } finally {
       setProcessingOfferId('');
     }
@@ -225,7 +278,7 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
   if (!chat) {
     return (
       <div className="rounded-[2rem] border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-8 text-center text-[var(--pf-muted)]">
-        Select a chat or start a new conversation from a listing.
+        {t.emptyState}
       </div>
     );
   }
@@ -235,17 +288,17 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
       <div className="border-b pf-divider px-5 py-4">
         <div className="flex items-center gap-3">
           <Avatar
-            name={otherParticipant?.displayName || chat.participantNames?.[otherUid] || 'Contact'}
+            name={otherParticipant?.displayName || chat.participantNames?.[otherUid] || t.contact}
             src={otherParticipant?.avatarBase64 || ''}
             size="md"
           />
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-[var(--pf-primary)]">In-app chat</p>
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--pf-primary)]">{t.inAppChat}</p>
             <h3 className="mt-1 text-xl font-bold text-[var(--pf-text)]">
-              {otherParticipant?.displayName || chat.participantNames?.[otherUid] || 'Contact'}
+              {otherParticipant?.displayName || chat.participantNames?.[otherUid] || t.contact}
             </h3>
             <p className="mt-1 text-sm text-[var(--pf-muted)]">
-              Listing: <span className="font-medium text-[var(--pf-text)]">{chat.partTitle || 'Listing'}</span>
+              {t.listing}: <span className="font-medium text-[var(--pf-text)]">{chat.partTitle || t.listing}</span>
             </p>
           </div>
         </div>
@@ -253,9 +306,9 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
 
       <div className="pf-scroll max-h-[24rem] min-h-[24rem] space-y-3 overflow-y-auto px-5 py-4">
         {loading ? (
-          <p className="text-sm text-[var(--pf-muted)]">Loading messages...</p>
+          <p className="text-sm text-[var(--pf-muted)]">{t.loading}</p>
         ) : messages.length === 0 ? (
-          <p className="text-sm text-[var(--pf-muted)]">No messages yet. Start the conversation.</p>
+          <p className="text-sm text-[var(--pf-muted)]">{t.noMessages}</p>
         ) : (
           messages.map((message) => {
             const own = message.senderUid === currentUser.uid;
@@ -272,14 +325,14 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
                     : 'border border-[color:var(--pf-border)] bg-[var(--pf-surface-3)] text-[var(--pf-text)]'
                 }`}
               >
-                <p className="text-sm font-semibold">{own ? 'You' : message.senderName || 'Contact'}</p>
+                <p className="text-sm font-semibold">{own ? t.you : message.senderName || t.contact}</p>
                 {isOffer ? (
                   <div className="mt-2 space-y-2">
                     <p className="text-sm leading-6">
-                      Offer: <span className="font-black">{currencyFormatter.format(Number(message.offerAmount || 0))}</span>
+                      {t.offer}: <span className="font-black">{currencyFormatter.format(Number(message.offerAmount || 0), language)}</span>
                     </p>
                     <p className={`text-xs ${own ? 'text-[#0f172a]' : 'text-[var(--pf-muted)]'}`}>
-                      Status: {message.offerStatus || 'pending'}
+                      {t.status}: {message.offerStatus || t.pending}
                     </p>
                     {canDecideOffer ? (
                       <div className="flex flex-wrap gap-2">
@@ -289,7 +342,7 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
                           onClick={() => handleOfferDecision(message, 'accepted')}
                           className="rounded-lg bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300 disabled:opacity-60"
                         >
-                          Accept
+                          {t.accept}
                         </button>
                         <button
                           type="button"
@@ -297,7 +350,7 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
                           onClick={() => handleOfferDecision(message, 'declined')}
                           className="rounded-lg bg-rose-500/20 px-3 py-1 text-xs font-semibold text-rose-300 disabled:opacity-60"
                         >
-                          Decline
+                          {t.decline}
                         </button>
                       </div>
                     ) : null}
@@ -306,7 +359,7 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
                   <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{message.text}</p>
                 )}
                 <p className={`mt-2 text-xs ${own ? 'text-[#0f172a]' : 'text-[var(--pf-muted)]'}`}>
-                  {formatShortDateTime(message.createdAt)}
+                  {formatShortDateTime(message.createdAt, null, language)}
                 </p>
               </div>
             );
@@ -321,7 +374,7 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
             rows="2"
             value={messageText}
             onChange={(event) => setMessageText(event.target.value)}
-            placeholder="Type a message..."
+            placeholder={t.typeMessage}
             className="pf-textarea min-h-[3.25rem] flex-1 px-4 py-3"
           />
           <button
@@ -329,7 +382,7 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
             disabled={sending}
             className="pf-button-primary px-5 py-3 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {sending ? 'Sending...' : 'Send'}
+            {sending ? t.sending : t.send}
           </button>
         </div>
 
@@ -341,7 +394,7 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
               step="0.01"
               value={offerAmount}
               onChange={(event) => setOfferAmount(event.target.value)}
-              placeholder="Offer in EUR"
+              placeholder={t.offerInEur}
               className="pf-input max-w-[11rem] px-3 py-2"
             />
             <button
@@ -350,7 +403,7 @@ export default function ChatPanel({ chat, currentUser, onToast, profilesByUid })
               disabled={sending}
               className="pf-button-secondary px-4 py-2 text-sm disabled:opacity-60"
             >
-              Send offer
+              {t.sendOffer}
             </button>
           </div>
         ) : null}
