@@ -59,6 +59,23 @@ const text = {
     rating: 'Rating',
     all: 'All',
     ratingsNew: 'New',
+    bulkImport: 'Bulk import',
+    downloadTemplate: 'Download CSV template',
+    importCsv: 'Import CSV',
+    importHint: 'Import CSV, then add images per row and save listings one by one.',
+    importedRows: 'Imported rows',
+    noImportedRows: 'No imported rows yet.',
+    addImage: 'Add image',
+    saveListing: 'Save listing',
+    saved: 'Saved',
+    rowReady: 'ready',
+    rowNeedsImage: 'image required',
+    csvEmpty: 'CSV is empty.',
+    csvInvalid: 'CSV format is invalid.',
+    csvLoaded: (count) => `${count} rows imported for review.`,
+    rowImagePrepared: 'Image prepared for row.',
+    rowImageError: 'Image could not be processed.',
+    rowSaved: 'Listing saved.',
   },
   de: {
     sold: 'Verkauft',
@@ -112,6 +129,23 @@ const text = {
     rating: 'Rating',
     all: 'Alle',
     ratingsNew: 'Neu',
+    bulkImport: 'Massenimport',
+    downloadTemplate: 'CSV Vorlage herunterladen',
+    importCsv: 'CSV importieren',
+    importHint: 'CSV importieren, danach pro Zeile Bild zuweisen und Inserate einzeln speichern.',
+    importedRows: 'Importierte Zeilen',
+    noImportedRows: 'Noch keine importierten Zeilen.',
+    addImage: 'Bild hinzufuegen',
+    saveListing: 'Inserat speichern',
+    saved: 'Gespeichert',
+    rowReady: 'bereit',
+    rowNeedsImage: 'Bild fehlt',
+    csvEmpty: 'CSV ist leer.',
+    csvInvalid: 'CSV Format ist ungueltig.',
+    csvLoaded: (count) => `${count} Zeilen zum Pruefen importiert.`,
+    rowImagePrepared: 'Bild fuer Zeile vorbereitet.',
+    rowImageError: 'Bild konnte nicht verarbeitet werden.',
+    rowSaved: 'Inserat gespeichert.',
   },
 };
 
@@ -167,6 +201,7 @@ export default function Dashboard({
   reportsLoading,
   onModerateReport,
   moderationOpenCount,
+  onImportPart,
 }) {
   const t = language === 'de' ? text.de : text.en;
   const baseSections = [
@@ -194,7 +229,10 @@ export default function Dashboard({
   const [savingPassword, setSavingPassword] = useState(false);
   const [processingAvatar, setProcessingAvatar] = useState(false);
   const [moderationNotes, setModerationNotes] = useState({});
+  const [importRows, setImportRows] = useState([]);
+  const [savingRowId, setSavingRowId] = useState('');
   const avatarInputRef = useRef(null);
+  const csvInputRef = useRef(null);
 
   useEffect(() => {
     setProfileForm({
@@ -297,6 +335,144 @@ export default function Dashboard({
       status,
       note: moderationNotes[report.id] || '',
     });
+  };
+
+  const handleDownloadTemplate = () => {
+    const rows = [
+      'category,brand,model,title,price,condition,description,location,shippingAvailable,pickupAvailable,oemNumber,engineCode,vehicleGeneration,yearFrom,yearTo',
+      'Turbocharger,BMW,320d E90,Original BMW turbocharger,350,Used,Tested and fully working,Berlin,true,true,11657790806,N47D20C,E90 Facelift,2008,2011',
+    ];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'partfinder-import-template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const parseCsvLine = (line) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current);
+    return result.map((item) => item.trim());
+  };
+
+  const handleCsvImport = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const content = await file.text();
+      const lines = content.split(/\r?\n/).filter((line) => line.trim());
+      if (lines.length < 2) {
+        onToast(t.csvEmpty, 'error');
+        return;
+      }
+
+      const headers = parseCsvLine(lines[0]);
+      const required = ['category', 'brand', 'model', 'title', 'price', 'condition', 'description'];
+      const hasRequired = required.every((key) => headers.includes(key));
+      if (!hasRequired) {
+        onToast(t.csvInvalid, 'error');
+        return;
+      }
+
+      const rows = lines.slice(1).map((line, index) => {
+        const values = parseCsvLine(line);
+        const row = {};
+        headers.forEach((header, valueIndex) => {
+          row[header] = values[valueIndex] || '';
+        });
+
+        return {
+          id: `${Date.now()}-${index}`,
+          category: row.category,
+          brand: row.brand,
+          model: row.model,
+          title: row.title,
+          price: Number(row.price || 0),
+          condition: row.condition || 'Used',
+          description: row.description,
+          location: row.location || '',
+          shippingAvailable: String(row.shippingAvailable).toLowerCase() === 'true',
+          pickupAvailable: String(row.pickupAvailable || 'true').toLowerCase() !== 'false',
+          oemNumber: row.oemNumber || '',
+          engineCode: row.engineCode || '',
+          vehicleGeneration: row.vehicleGeneration || '',
+          yearFrom: row.yearFrom || '',
+          yearTo: row.yearTo || '',
+          imagesBase64: [],
+          saved: false,
+        };
+      }).filter((row) => row.category && row.title);
+
+      setImportRows(rows);
+      onToast(t.csvLoaded(rows.length), 'success');
+    } catch (error) {
+      console.error(error);
+      onToast(t.csvInvalid, 'error');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const handleImportRowImage = async (rowId, file) => {
+    if (!file) return;
+
+    try {
+      const imageBase64 = await resizeImageToBase64(file, {
+        maxWidth: 720,
+        maxHeight: 720,
+        quality: 0.6,
+      });
+
+      setImportRows((prev) => prev.map((row) => (
+        row.id === rowId
+          ? { ...row, imagesBase64: [imageBase64], saved: false }
+          : row
+      )));
+      onToast(t.rowImagePrepared, 'success');
+    } catch (error) {
+      console.error(error);
+      onToast(t.rowImageError, 'error');
+    }
+  };
+
+  const handleSaveImportRow = async (row) => {
+    if (!onImportPart || row.saved || row.imagesBase64.length === 0) {
+      return;
+    }
+
+    setSavingRowId(row.id);
+    try {
+      await onImportPart(row);
+      setImportRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, saved: true } : item)));
+      onToast(t.rowSaved, 'success');
+    } finally {
+      setSavingRowId('');
+    }
   };
 
   return (
@@ -505,6 +681,66 @@ export default function Dashboard({
                   <button type="button" onClick={() => setPartsFilter('reserved')} className="pf-button-secondary px-4 py-2 text-sm">{t.reserved}</button>
                   <button type="button" onClick={() => setPartsFilter('sold')} className="pf-button-secondary px-4 py-2 text-sm">{t.sold}</button>
                 </div>
+
+                <div className="mb-5 rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
+                  <h3 className="text-base font-semibold text-[var(--pf-text)]">{t.bulkImport}</h3>
+                  <p className="mt-1 text-sm text-[var(--pf-muted)]">{t.importHint}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={handleDownloadTemplate} className="pf-button-secondary px-4 py-2 text-sm">
+                      {t.downloadTemplate}
+                    </button>
+                    <button type="button" onClick={() => csvInputRef.current?.click()} className="pf-button-primary px-4 py-2 text-sm">
+                      {t.importCsv}
+                    </button>
+                    <input
+                      ref={csvInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={handleCsvImport}
+                    />
+                  </div>
+
+                  <h4 className="mt-4 mb-3 text-sm font-semibold text-[var(--pf-text)]">{t.importedRows}</h4>
+                  {importRows.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface)] p-4 text-sm text-[var(--pf-muted)]">
+                      {t.noImportedRows}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {importRows.map((row) => (
+                        <div key={row.id} className="rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface)] p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-semibold text-[var(--pf-text)]">{row.title}</p>
+                            <span className="text-xs text-[var(--pf-muted)]">{row.saved ? t.saved : (row.imagesBase64.length > 0 ? t.rowReady : t.rowNeedsImage)}</span>
+                          </div>
+                          <p className="mt-1 text-sm text-[var(--pf-muted)]">{row.category} • {row.brand} / {row.model}</p>
+                          <p className="mt-1 text-sm font-semibold text-[var(--pf-text)]">{currencyFormatter.format(Number(row.price || 0), language)}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <label className="pf-button-secondary cursor-pointer px-3 py-2 text-sm">
+                              {t.addImage}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(event) => handleImportRowImage(row.id, event.target.files?.[0])}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              disabled={row.saved || row.imagesBase64.length === 0 || savingRowId === row.id}
+                              onClick={() => handleSaveImportRow(row)}
+                              className="pf-button-primary px-3 py-2 text-sm disabled:opacity-60"
+                            >
+                              {savingRowId === row.id ? t.saving : t.saveListing}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {visibleParts.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4 text-sm text-[var(--pf-muted)]">
                     {t.noListingsInView}
@@ -534,6 +770,9 @@ export default function Dashboard({
                 )}
               </section>
             ) : null}
+
+
+
 
             {activeSection === 'moderation' && isModerator ? (
               <section className="rounded-[1.5rem] pf-card p-5">
