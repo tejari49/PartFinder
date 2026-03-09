@@ -273,7 +273,9 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Categories could not be loaded.', 'error');
+        if (auth.currentUser) {
+          pushToast('Categories could not be loaded.', 'error');
+        }
         setCategoriesLoading(false);
       },
     );
@@ -300,7 +302,9 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Parts could not be loaded.', 'error');
+        if (auth.currentUser) {
+          pushToast('Parts could not be loaded.', 'error');
+        }
         setPartsLoading(false);
       },
     );
@@ -328,7 +332,9 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('User profiles could not be loaded.', 'error');
+        if (auth.currentUser) {
+          pushToast('User profiles could not be loaded.', 'error');
+        }
       },
     );
 
@@ -1151,6 +1157,15 @@ export default function App() {
             reportsLoading={reportsLoading}
             onModerateReport={handleModerateReport}
             moderationOpenCount={moderationOpenCount}
+            onImportPart={handleImportPart}
+          />
+        ) : activeView === 'auth' ? (
+          <Auth
+            language={language}
+            onLanguageChange={setLanguage}
+            onToast={pushToast}
+            theme={theme}
+            onThemeChange={setTheme}
           />
         ) : activeView === 'auth' ? (
           <Auth
