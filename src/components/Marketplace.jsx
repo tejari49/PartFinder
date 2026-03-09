@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AddPartForm from './AddPartForm';
 import LanguageSwitcher from './LanguageSwitcher';
 import PartDetailModal from './PartDetailModal';
@@ -46,6 +46,10 @@ const text = {
     signedInAs: 'Signed in as',
     guestMode: 'Guest mode: browsing available listings without login.',
     signIn: 'Sign in',
+    bulkTools: 'Bulk tools',
+    downloadTemplate: 'Download CSV template',
+    importCsv: 'Import CSV',
+    importHint: 'Fill the template in Excel and import it to publish many listings at once.',
     listings: 'Listings',
     mine: 'Mine',
     searchPlaceholder: 'Search by brand, model, OEM, or engine code...',
@@ -102,6 +106,10 @@ const text = {
     signedInAs: 'Eingeloggt als',
     guestMode: 'Gastmodus: Verfuegbare Inserate ohne Login ansehen.',
     signIn: 'Einloggen',
+    bulkTools: 'Massen-Tools',
+    downloadTemplate: 'CSV Vorlage herunterladen',
+    importCsv: 'CSV importieren',
+    importHint: 'Vorlage in Excel ausfuellen und gesammelt importieren, um viele Inserate schnell zu veroeffentlichen.',
     listings: 'Inserate',
     mine: 'Eigene',
     searchPlaceholder: 'Suche nach Marke, Modell, OEM oder Motorcode...',
@@ -308,6 +316,7 @@ export default function Marketplace({
   onInstallApp,
   onDismissInstallHint,
   onOpenAuth,
+  onBulkImport,
 }) {
   const t = language === 'de' ? text.de : text.en;
   const [selectedPart, setSelectedPart] = useState(null);
@@ -320,6 +329,7 @@ export default function Marketplace({
   const [maxPrice, setMaxPrice] = useState('');
   const [mobileSection, setMobileSection] = useState('list');
   const logoSrc = `${import.meta.env.BASE_URL}partfinder-icon.png`;
+  const csvInputRef = useRef(null);
   const isSignedIn = Boolean(user?.uid);
 
   useEffect(() => {
@@ -408,6 +418,101 @@ export default function Marketplace({
   const handleCancelEdit = () => {
     onCancelEdit();
     setMobileSection('list');
+  };
+
+  const handleDownloadTemplate = () => {
+    const rows = [
+      'category,brand,model,title,price,condition,description,location,shippingAvailable,pickupAvailable,oemNumber,engineCode,vehicleGeneration,yearFrom,yearTo',
+      'Turbocharger,BMW,320d E90,Original BMW turbocharger,350,Used,Tested and fully working,Berlin,true,true,11657790806,N47D20C,E90 Facelift,2008,2011',
+    ];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'partfinder-import-template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const parseCsvLine = (line) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current);
+    return result.map((item) => item.trim());
+  };
+
+  const handleCsvImport = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !onBulkImport) {
+      return;
+    }
+
+    try {
+      const content = await file.text();
+      const lines = content.split(/\r?\n/).filter((line) => line.trim());
+      if (lines.length < 2) {
+        onToast('CSV is empty.', 'error');
+        return;
+      }
+      const headers = parseCsvLine(lines[0]);
+      const required = ['category', 'brand', 'model', 'title', 'price', 'condition', 'description'];
+      const hasRequired = required.every((key) => headers.includes(key));
+      if (!hasRequired) {
+        onToast('CSV format is invalid.', 'error');
+        return;
+      }
+
+      const rows = lines.slice(1).map((line) => {
+        const values = parseCsvLine(line);
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        return {
+          category: row.category,
+          brand: row.brand,
+          model: row.model,
+          title: row.title,
+          price: Number(row.price || 0),
+          condition: row.condition || 'Used',
+          description: row.description,
+          location: row.location || '',
+          shippingAvailable: String(row.shippingAvailable).toLowerCase() === 'true',
+          pickupAvailable: String(row.pickupAvailable || 'true').toLowerCase() !== 'false',
+          oemNumber: row.oemNumber || '',
+          engineCode: row.engineCode || '',
+          vehicleGeneration: row.vehicleGeneration || '',
+          yearFrom: row.yearFrom || '',
+          yearTo: row.yearTo || '',
+        };
+      }).filter((row) => row.title && row.category);
+
+      await onBulkImport(rows);
+    } catch (error) {
+      console.error(error);
+      onToast('CSV import failed.', 'error');
+    } finally {
+      event.target.value = '';
+    }
   };
 
   const renderResults = (isMobile = false) => {
@@ -610,6 +715,32 @@ export default function Marketplace({
                   </span>
                 </>) : t.guestMode}
               </div>
+
+              {isSignedIn ? (
+                <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3">
+                  <p className="text-sm font-semibold text-[var(--pf-text)]">{t.bulkTools}</p>
+                  <p className="mt-1 text-sm text-[var(--pf-muted)]">{t.importHint}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={handleDownloadTemplate} className="pf-button-secondary px-4 py-2 text-sm">
+                      {t.downloadTemplate}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => csvInputRef.current?.click()}
+                      className="pf-button-primary px-4 py-2 text-sm"
+                    >
+                      {t.importCsv}
+                    </button>
+                    <input
+                      ref={csvInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={handleCsvImport}
+                    />
+                  </div>
+                </div>
+              ) : null}
 
               <div className="flex gap-2 overflow-x-auto pb-1 pf-scroll">
                 <CompactStat label={t.listings} value={totalParts} />
