@@ -117,6 +117,7 @@ const getPartImages = (payload) => {
   return [];
 };
 
+
 const toOptionalYear = (value) => {
   if (value === '' || value === null || value === undefined) {
     return null;
@@ -256,9 +257,6 @@ export default function App() {
   }, [user, pushToast, language]);
 
   useEffect(() => {
-    if (!user) {
-      return undefined;
-    }
 
     setCategoriesLoading(true);
 
@@ -273,18 +271,17 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Categories could not be loaded.', 'error');
+        if (auth.currentUser) {
+          pushToast('Categories could not be loaded.', 'error');
+        }
         setCategoriesLoading(false);
       },
     );
 
     return () => unsubscribe();
-  }, [user, pushToast]);
+  }, [pushToast]);
 
   useEffect(() => {
-    if (!user) {
-      return undefined;
-    }
 
     setPartsLoading(true);
 
@@ -303,18 +300,17 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('Parts could not be loaded.', 'error');
+        if (auth.currentUser) {
+          pushToast('Parts could not be loaded.', 'error');
+        }
         setPartsLoading(false);
       },
     );
 
     return () => unsubscribe();
-  }, [user, pushToast]);
+  }, [pushToast]);
 
   useEffect(() => {
-    if (!user) {
-      return undefined;
-    }
 
     const usersQuery = query(collection(db, 'users'));
 
@@ -334,12 +330,14 @@ export default function App() {
       },
       (error) => {
         console.error(error);
-        pushToast('User profiles could not be loaded.', 'error');
+        if (auth.currentUser) {
+          pushToast('User profiles could not be loaded.', 'error');
+        }
       },
     );
 
     return () => unsubscribe();
-  }, [user, pushToast]);
+  }, [pushToast]);
 
   useEffect(() => {
     if (!user) {
@@ -684,6 +682,15 @@ export default function App() {
       pushToast('Save failed. Check Firestore rules and indexes.', 'error');
       throw error;
     }
+  };
+
+  const handleImportPart = async (payload) => {
+    if (!user) {
+      pushToast('Please sign in first.', 'error');
+      return;
+    }
+
+    await handleUpsertPart(payload);
   };
 
   const handleEditPart = (part) => {
@@ -1095,8 +1102,7 @@ export default function App() {
             </p>
           </div>
         </div>
-      ) : user ? (
-        activeView === 'dashboard' ? (
+      ) : user && activeView === 'dashboard' ? (
           <Dashboard
             language={language}
             onLanguageChange={setLanguage}
@@ -1130,6 +1136,15 @@ export default function App() {
             reportsLoading={reportsLoading}
             onModerateReport={handleModerateReport}
             moderationOpenCount={moderationOpenCount}
+            onImportPart={handleImportPart}
+          />
+        ) : activeView === 'auth' ? (
+          <Auth
+            language={language}
+            onLanguageChange={setLanguage}
+            onToast={pushToast}
+            theme={theme}
+            onThemeChange={setTheme}
           />
         ) : (
           <Marketplace
@@ -1168,16 +1183,8 @@ export default function App() {
             installAvailable={installAvailable}
             onInstallApp={handleInstallApp}
             onDismissInstallHint={handleDismissInstallHint}
+            onOpenAuth={() => setActiveView('auth')}
           />
-        )
-      ) : (
-        <Auth
-          language={language}
-          onLanguageChange={setLanguage}
-          onToast={pushToast}
-          theme={theme}
-          onThemeChange={setTheme}
-        />
       )}
 
       <Toast toasts={toasts} />
