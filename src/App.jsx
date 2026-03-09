@@ -117,6 +117,9 @@ const getPartImages = (payload) => {
   return [];
 };
 
+const BULK_IMPORT_PLACEHOLDER_IMAGE =
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI3MjAiIGhlaWdodD0iNzIwIiB2aWV3Qm94PSIwIDAgNzIwIDcyMCI+PHJlY3Qgd2lkdGg9IjcyMCIgaGVpZ2h0PSI3MjAiIGZpbGw9IiMwZjE5MmIiLz48dGV4dCB4PSI1MCUiIHk9IjQ4JSIgZmlsbD0iIzk0YTNiOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI0OCI+UGFydEZpbmRlcjwvdGV4dD48dGV4dCB4PSI1MCUiIHk9IjU2JSIgZmlsbD0iIzY0NzQ4YiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyOCI+SW1hZ2UgcGVuZGluZzwvdGV4dD48L3N2Zz4=';
+
 const toOptionalYear = (value) => {
   if (value === '' || value === null || value === undefined) {
     return null;
@@ -256,9 +259,6 @@ export default function App() {
   }, [user, pushToast, language]);
 
   useEffect(() => {
-    if (!user) {
-      return undefined;
-    }
 
     setCategoriesLoading(true);
 
@@ -279,12 +279,9 @@ export default function App() {
     );
 
     return () => unsubscribe();
-  }, [user, pushToast]);
+  }, [pushToast]);
 
   useEffect(() => {
-    if (!user) {
-      return undefined;
-    }
 
     setPartsLoading(true);
 
@@ -309,12 +306,9 @@ export default function App() {
     );
 
     return () => unsubscribe();
-  }, [user, pushToast]);
+  }, [pushToast]);
 
   useEffect(() => {
-    if (!user) {
-      return undefined;
-    }
 
     const usersQuery = query(collection(db, 'users'));
 
@@ -339,7 +333,7 @@ export default function App() {
     );
 
     return () => unsubscribe();
-  }, [user, pushToast]);
+  }, [pushToast]);
 
   useEffect(() => {
     if (!user) {
@@ -684,6 +678,34 @@ export default function App() {
       pushToast('Save failed. Check Firestore rules and indexes.', 'error');
       throw error;
     }
+  };
+
+  const handleBulkImportParts = async (rows) => {
+    if (!user) {
+      pushToast('Please sign in first.', 'error');
+      return;
+    }
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return;
+    }
+
+    let imported = 0;
+
+    for (const row of rows) {
+      const normalizedRow = {
+        ...row,
+        imagesBase64:
+          Array.isArray(row.imagesBase64) && row.imagesBase64.length > 0
+            ? row.imagesBase64
+            : [BULK_IMPORT_PLACEHOLDER_IMAGE],
+      };
+
+      await handleUpsertPart(normalizedRow);
+      imported += 1;
+    }
+
+    pushToast(`${imported} listings imported.`, 'success');
   };
 
   const handleEditPart = (part) => {
@@ -1095,8 +1117,7 @@ export default function App() {
             </p>
           </div>
         </div>
-      ) : user ? (
-        activeView === 'dashboard' ? (
+      ) : user && activeView === 'dashboard' ? (
           <Dashboard
             language={language}
             onLanguageChange={setLanguage}
@@ -1130,6 +1151,14 @@ export default function App() {
             reportsLoading={reportsLoading}
             onModerateReport={handleModerateReport}
             moderationOpenCount={moderationOpenCount}
+          />
+        ) : activeView === 'auth' ? (
+          <Auth
+            language={language}
+            onLanguageChange={setLanguage}
+            onToast={pushToast}
+            theme={theme}
+            onThemeChange={setTheme}
           />
         ) : (
           <Marketplace
@@ -1168,16 +1197,9 @@ export default function App() {
             installAvailable={installAvailable}
             onInstallApp={handleInstallApp}
             onDismissInstallHint={handleDismissInstallHint}
+            onOpenAuth={() => setActiveView('auth')}
+            onBulkImport={handleBulkImportParts}
           />
-        )
-      ) : (
-        <Auth
-          language={language}
-          onLanguageChange={setLanguage}
-          onToast={pushToast}
-          theme={theme}
-          onThemeChange={setTheme}
-        />
       )}
 
       <Toast toasts={toasts} />

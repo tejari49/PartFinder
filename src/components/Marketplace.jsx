@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AddPartForm from './AddPartForm';
 import LanguageSwitcher from './LanguageSwitcher';
 import PartDetailModal from './PartDetailModal';
@@ -44,6 +44,12 @@ const text = {
     installAction: 'Install',
     installLater: 'Later',
     signedInAs: 'Signed in as',
+    guestMode: 'Guest mode: browsing available listings without login.',
+    signIn: 'Sign in',
+    bulkTools: 'Bulk tools',
+    downloadTemplate: 'Download CSV template',
+    importCsv: 'Import CSV',
+    importHint: 'Fill the template in Excel and import it to publish many listings at once.',
     listings: 'Listings',
     mine: 'Mine',
     searchPlaceholder: 'Search by brand, model, OEM, or engine code...',
@@ -98,6 +104,12 @@ const text = {
     installAction: 'Installieren',
     installLater: 'Spaeter',
     signedInAs: 'Eingeloggt als',
+    guestMode: 'Gastmodus: Verfuegbare Inserate ohne Login ansehen.',
+    signIn: 'Einloggen',
+    bulkTools: 'Massen-Tools',
+    downloadTemplate: 'CSV Vorlage herunterladen',
+    importCsv: 'CSV importieren',
+    importHint: 'Vorlage in Excel ausfuellen und gesammelt importieren, um viele Inserate schnell zu veroeffentlichen.',
     listings: 'Inserate',
     mine: 'Eigene',
     searchPlaceholder: 'Suche nach Marke, Modell, OEM oder Motorcode...',
@@ -303,6 +315,8 @@ export default function Marketplace({
   installAvailable,
   onInstallApp,
   onDismissInstallHint,
+  onOpenAuth,
+  onBulkImport,
 }) {
   const t = language === 'de' ? text.de : text.en;
   const [selectedPart, setSelectedPart] = useState(null);
@@ -315,6 +329,8 @@ export default function Marketplace({
   const [maxPrice, setMaxPrice] = useState('');
   const [mobileSection, setMobileSection] = useState('list');
   const logoSrc = `${import.meta.env.BASE_URL}partfinder-icon.png`;
+  const csvInputRef = useRef(null);
+  const isSignedIn = Boolean(user?.uid);
 
   useEffect(() => {
     if (editingPart) {
@@ -332,7 +348,7 @@ export default function Marketplace({
       const searchText = part.searchIndexText || buildPartSearchText(part);
       const matchesSearch = matchesSearchQuery(searchText, needle);
       const matchesFavorites = !showOnlyFavorites || favoritePartIds.includes(part.id);
-      const matchesScope = listingScope !== 'mine' || part.sellerUid === user.uid;
+      const matchesScope = !isSignedIn || listingScope !== 'mine' || part.sellerUid === user?.uid;
       const matchesStatus = statusFilter === 'all' || (part.status || 'active') === statusFilter;
       const matchesMin = min === null || price >= min;
       const matchesMax = max === null || price <= max;
@@ -363,27 +379,28 @@ export default function Marketplace({
     showOnlyFavorites,
     sortMode,
     statusFilter,
-    user.uid,
+    user?.uid,
+    isSignedIn,
   ]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (listingScope === 'mine') count += 1;
-    if (showOnlyFavorites) count += 1;
+    if (isSignedIn && listingScope === 'mine') count += 1;
+    if (isSignedIn && showOnlyFavorites) count += 1;
     if (statusFilter !== 'all') count += 1;
     if (minPrice !== '') count += 1;
     if (maxPrice !== '') count += 1;
     if (sortMode !== 'newest') count += 1;
     if (selectedCategory !== 'all') count += 1;
     return count;
-  }, [listingScope, maxPrice, minPrice, selectedCategory, showOnlyFavorites, sortMode, statusFilter]);
+  }, [isSignedIn, listingScope, maxPrice, minPrice, selectedCategory, showOnlyFavorites, sortMode, statusFilter]);
 
   const activeMobileSummary = useMemo(() => {
     const tags = [];
 
     if (selectedCategory !== 'all') tags.push(selectedCategory);
-    if (listingScope === 'mine') tags.push(t.myListings);
-    if (showOnlyFavorites) tags.push(t.favoritesOnly);
+    if (isSignedIn && listingScope === 'mine') tags.push(t.myListings);
+    if (isSignedIn && showOnlyFavorites) tags.push(t.favoritesOnly);
     if (statusFilter === 'active') tags.push(t.activeOnly);
     if (statusFilter === 'reserved') tags.push(t.reservedOnly);
     if (statusFilter === 'sold') tags.push(t.soldOnly);
@@ -391,7 +408,7 @@ export default function Marketplace({
     if (maxPrice !== '') tags.push(t.toEur(maxPrice));
 
     return tags;
-  }, [listingScope, maxPrice, minPrice, selectedCategory, showOnlyFavorites, statusFilter, t]);
+  }, [isSignedIn, listingScope, maxPrice, minPrice, selectedCategory, showOnlyFavorites, statusFilter, t]);
 
   const handleCategorySelect = (category) => {
     onSelectCategory(category);
@@ -401,6 +418,101 @@ export default function Marketplace({
   const handleCancelEdit = () => {
     onCancelEdit();
     setMobileSection('list');
+  };
+
+  const handleDownloadTemplate = () => {
+    const rows = [
+      'category,brand,model,title,price,condition,description,location,shippingAvailable,pickupAvailable,oemNumber,engineCode,vehicleGeneration,yearFrom,yearTo',
+      'Turbocharger,BMW,320d E90,Original BMW turbocharger,350,Used,Tested and fully working,Berlin,true,true,11657790806,N47D20C,E90 Facelift,2008,2011',
+    ];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'partfinder-import-template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const parseCsvLine = (line) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current);
+    return result.map((item) => item.trim());
+  };
+
+  const handleCsvImport = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !onBulkImport) {
+      return;
+    }
+
+    try {
+      const content = await file.text();
+      const lines = content.split(/\r?\n/).filter((line) => line.trim());
+      if (lines.length < 2) {
+        onToast('CSV is empty.', 'error');
+        return;
+      }
+      const headers = parseCsvLine(lines[0]);
+      const required = ['category', 'brand', 'model', 'title', 'price', 'condition', 'description'];
+      const hasRequired = required.every((key) => headers.includes(key));
+      if (!hasRequired) {
+        onToast('CSV format is invalid.', 'error');
+        return;
+      }
+
+      const rows = lines.slice(1).map((line) => {
+        const values = parseCsvLine(line);
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        return {
+          category: row.category,
+          brand: row.brand,
+          model: row.model,
+          title: row.title,
+          price: Number(row.price || 0),
+          condition: row.condition || 'Used',
+          description: row.description,
+          location: row.location || '',
+          shippingAvailable: String(row.shippingAvailable).toLowerCase() === 'true',
+          pickupAvailable: String(row.pickupAvailable || 'true').toLowerCase() !== 'false',
+          oemNumber: row.oemNumber || '',
+          engineCode: row.engineCode || '',
+          vehicleGeneration: row.vehicleGeneration || '',
+          yearFrom: row.yearFrom || '',
+          yearTo: row.yearTo || '',
+        };
+      }).filter((row) => row.title && row.category);
+
+      await onBulkImport(rows);
+    } catch (error) {
+      console.error(error);
+      onToast('CSV import failed.', 'error');
+    } finally {
+      event.target.value = '';
+    }
   };
 
   const renderResults = (isMobile = false) => {
@@ -431,7 +543,7 @@ export default function Marketplace({
             key={part.id}
             part={part}
             onOpenDetails={setSelectedPart}
-            isOwn={part.sellerUid === user.uid}
+            isOwn={part.sellerUid === user?.uid}
             isFavorite={favoritePartIds.includes(part.id)}
             onToggleFavorite={onToggleFavorite}
             sellerTrust={sellerTrustByUid[part.sellerUid]}
@@ -479,12 +591,16 @@ export default function Marketplace({
         <ScopeTab active={listingScope === 'all'} onClick={() => setListingScope('all')}>
           {t.allListings}
         </ScopeTab>
-        <ScopeTab active={listingScope === 'mine'} onClick={() => setListingScope('mine')}>
-          {t.myListings}
-        </ScopeTab>
-        <ScopeTab active={showOnlyFavorites} onClick={() => setShowOnlyFavorites((prev) => !prev)}>
-          {showOnlyFavorites ? t.favoritesOn : t.favoritesOnly}
-        </ScopeTab>
+        {isSignedIn ? (
+          <>
+            <ScopeTab active={listingScope === 'mine'} onClick={() => setListingScope('mine')}>
+              {t.myListings}
+            </ScopeTab>
+            <ScopeTab active={showOnlyFavorites} onClick={() => setShowOnlyFavorites((prev) => !prev)}>
+              {showOnlyFavorites ? t.favoritesOn : t.favoritesOnly}
+            </ScopeTab>
+          </>
+        ) : null}
       </div>
     </div>
   );
@@ -555,6 +671,7 @@ export default function Marketplace({
               <div className="relative z-[1] flex flex-wrap items-center gap-2 sm:gap-3 lg:justify-end">
                 <LanguageSwitcher value={language} onChange={onLanguageChange} />
                 <ThemeSwitcher value={theme} onChange={onThemeChange} compact />
+                {isSignedIn ? (<>
                 <button type="button" onClick={onOpenDashboard} className="pf-button-secondary px-4 py-2.5 text-sm">
                   {t.dashboard}
                   {unreadChatsCount > 0 ? (
@@ -566,6 +683,11 @@ export default function Marketplace({
                 <button type="button" onClick={onSignOut} className="pf-button-secondary px-4 py-2.5 text-sm">
                   {t.signOut}
                 </button>
+                </>) : (
+                <button type="button" onClick={onOpenAuth} className="pf-button-primary px-4 py-2.5 text-sm">
+                  {t.signIn}
+                </button>
+                )}
               </div>
             </div>
 
@@ -586,11 +708,39 @@ export default function Marketplace({
               ) : null}
 
               <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3 text-sm text-[var(--pf-muted)]">
-                {t.signedInAs}{' '}
-                <span className="font-semibold text-[var(--pf-text)]">
-                  {profile?.displayName || user.displayName || user.email}
-                </span>
+                {isSignedIn ? (<>
+                  {t.signedInAs}{' '}
+                  <span className="font-semibold text-[var(--pf-text)]">
+                    {profile?.displayName || user?.displayName || user?.email}
+                  </span>
+                </>) : t.guestMode}
               </div>
+
+              {isSignedIn ? (
+                <div className="rounded-[1.15rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-4 py-3">
+                  <p className="text-sm font-semibold text-[var(--pf-text)]">{t.bulkTools}</p>
+                  <p className="mt-1 text-sm text-[var(--pf-muted)]">{t.importHint}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={handleDownloadTemplate} className="pf-button-secondary px-4 py-2 text-sm">
+                      {t.downloadTemplate}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => csvInputRef.current?.click()}
+                      className="pf-button-primary px-4 py-2 text-sm"
+                    >
+                      {t.importCsv}
+                    </button>
+                    <input
+                      ref={csvInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={handleCsvImport}
+                    />
+                  </div>
+                </div>
+              ) : null}
 
               <div className="flex gap-2 overflow-x-auto pb-1 pf-scroll">
                 <CompactStat label={t.listings} value={totalParts} />
@@ -655,7 +805,7 @@ export default function Marketplace({
 
             {mobileSection === 'categories' ? <section>{renderCategoryControls()}</section> : null}
 
-            {mobileSection === 'sell' ? (
+            {mobileSection === 'sell' && isSignedIn ? (
               <section>
                 <AddPartForm
                   language={language}
@@ -670,7 +820,7 @@ export default function Marketplace({
           </div>
 
           <div className="hidden gap-5 xl:grid xl:grid-cols-[360px_minmax(0,1fr)]">
-            <aside>
+            {isSignedIn ? <aside>
               <AddPartForm
                 language={language}
                 categories={categories}
@@ -679,9 +829,9 @@ export default function Marketplace({
                 editingPart={editingPart}
                 onCancelEdit={handleCancelEdit}
               />
-            </aside>
+            </aside> : null}
 
-            <section>{renderResults()}</section>
+            <section className={isSignedIn ? '' : 'xl:col-span-2'}>{renderResults()}</section>
           </div>
         </div>
 
@@ -700,11 +850,13 @@ export default function Marketplace({
               badge={selectedCategory === 'all' ? undefined : '1'}
               onClick={() => setMobileSection('categories')}
             />
+            {isSignedIn ? (
             <MobileNavButton
               active={mobileSection === 'sell'}
               label={editingPart ? t.edit : t.listing}
               onClick={() => setMobileSection('sell')}
             />
+            ) : null}
           </div>
         </div>
       </div>
