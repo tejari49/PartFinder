@@ -15,6 +15,9 @@ const text = {
     noImage: 'No image',
     noLocation: 'No location',
     verified: 'Verified',
+    emailVerified: 'Email verified',
+    phoneVerified: 'Phone verified',
+    documentVerified: 'Document verified',
     noRatings: 'No ratings yet',
     soldCount: (count) => `${count} sold`,
     all: 'All',
@@ -60,6 +63,7 @@ const text = {
     listing: 'Listing',
     fromEur: (value) => `from ${value} EUR`,
     toEur: (value) => `to ${value} EUR`,
+    contacts: (count) => `${count} contacts`,
   },
   de: {
     sold: 'Verkauft',
@@ -69,6 +73,9 @@ const text = {
     noImage: 'Kein Bild',
     noLocation: 'Ohne Standort',
     verified: 'Verifiziert',
+    emailVerified: 'E-Mail verifiziert',
+    phoneVerified: 'Telefon verifiziert',
+    documentVerified: 'Dokument verifiziert',
     noRatings: 'Noch keine Bewertung',
     soldCount: (count) => `${count} verkauft`,
     all: 'Alle',
@@ -114,6 +121,7 @@ const text = {
     listing: 'Inserat',
     fromEur: (value) => `ab ${value} EUR`,
     toEur: (value) => `bis ${value} EUR`,
+    contacts: (count) => `${count} Kontakte`,
   },
 };
 
@@ -193,7 +201,7 @@ function MobileNavButton({ active, label, badge, onClick }) {
   );
 }
 
-function PartCard({ part, onOpenDetails, isOwn, isFavorite, onToggleFavorite, sellerTrust, t, language }) {
+function PartCard({ part, onOpenDetails, isOwn, isFavorite, onToggleFavorite, sellerTrust, sellerHistory, t, language }) {
   const previewImage = part.imagesBase64?.[0] || part.imageBase64 || '';
   const average = sellerTrust?.ratingAverage || 0;
   const ratingCount = sellerTrust?.ratingCount || 0;
@@ -258,8 +266,18 @@ function PartCard({ part, onOpenDetails, isOwn, isFavorite, onToggleFavorite, se
                 {t.verified}
               </span>
             ) : null}
+            {sellerTrust?.verification?.email ? (
+              <span className="rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-2 py-1">{t.emailVerified}</span>
+            ) : null}
+            {sellerTrust?.verification?.phone ? (
+              <span className="rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-2 py-1">{t.phoneVerified}</span>
+            ) : null}
+            {sellerTrust?.verification?.document ? (
+              <span className="rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-2 py-1">{t.documentVerified}</span>
+            ) : null}
             <span>{ratingCount > 0 ? `${average.toFixed(1)} / 5 (${ratingCount})` : t.noRatings}</span>
             <span>{t.soldCount(soldCount)}</span>
+            {sellerHistory?.contactCount ? <span>{t.contacts(sellerHistory.contactCount)}</span> : null}
           </div>
         </div>
       </button>
@@ -298,6 +316,7 @@ export default function Marketplace({
   myPartsCount,
   soldCount,
   sellerTrustByUid,
+  sellerHistoryByUid,
   onSubmitRating,
   onSubmitReport,
   installAvailable,
@@ -435,6 +454,7 @@ export default function Marketplace({
             isFavorite={favoritePartIds.includes(part.id)}
             onToggleFavorite={onToggleFavorite}
             sellerTrust={sellerTrustByUid[part.sellerUid]}
+            sellerHistory={sellerHistoryByUid[part.sellerUid]}
             t={t}
             language={language}
           />
@@ -715,6 +735,7 @@ export default function Marketplace({
           part={selectedPart}
           sellerProfile={profilesByUid[selectedPart.sellerUid] || null}
           sellerTrust={sellerTrustByUid[selectedPart.sellerUid] || null}
+          sellerHistory={sellerHistoryByUid[selectedPart.sellerUid] || null}
           currentUser={user}
           onClose={() => setSelectedPart(null)}
           onStartChat={onStartChat}

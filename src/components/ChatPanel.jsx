@@ -41,6 +41,8 @@ const text = {
     sending: 'Sending...',
     offerInEur: 'Offer in EUR',
     sendOffer: 'Send offer',
+    buyerProtection: 'Buyer protection',
+    buyerProtectionHint: 'Never pay outside traceable channels. Meet in public and report suspicious offers.',
   },
   de: {
     loadError: 'Nachrichten konnten nicht geladen werden.',
@@ -69,6 +71,8 @@ const text = {
     sending: 'Sende...',
     offerInEur: 'Angebot in EUR',
     sendOffer: 'Angebot senden',
+    buyerProtection: 'Kaeuferschutz',
+    buyerProtectionHint: 'Zahle nicht ausserhalb nachvollziehbarer Wege. Triff dich oeffentlich und melde verdaechtige Angebote.',
   },
 };
 
@@ -302,6 +306,11 @@ export default function ChatPanel({ language = 'en', chat, currentUser, onToast,
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="mx-5 mt-4 rounded-[1rem] border border-cyan-400/30 bg-cyan-500/10 px-4 py-3 text-xs text-cyan-100">
+        <p className="font-semibold text-cyan-200">{t.buyerProtection}</p>
+        <p className="mt-1">{t.buyerProtectionHint}</p>
       </div>
 
       <div className="pf-scroll max-h-[24rem] min-h-[24rem] space-y-3 overflow-y-auto px-5 py-4">

@@ -59,6 +59,7 @@ const text = {
     rating: 'Rating',
     all: 'All',
     ratingsNew: 'New',
+    noImage: 'No image',
   },
   de: {
     sold: 'Verkauft',
@@ -112,6 +113,7 @@ const text = {
     rating: 'Rating',
     all: 'Alle',
     ratingsNew: 'Neu',
+    noImage: 'Kein Bild',
   },
 };
 
@@ -194,6 +196,7 @@ export default function Dashboard({
   const [savingPassword, setSavingPassword] = useState(false);
   const [processingAvatar, setProcessingAvatar] = useState(false);
   const [moderationNotes, setModerationNotes] = useState({});
+  const [brokenPartImages, setBrokenPartImages] = useState({});
   const avatarInputRef = useRef(null);
 
   useEffect(() => {
@@ -248,6 +251,11 @@ export default function Dashboard({
     ratingCount: 0,
     soldCount: 0,
     verified: false,
+  };
+
+  const getPartPreviewImage = (part) => {
+    if (!part?.id || brokenPartImages[part.id]) return '';
+    return part.imagesBase64?.[0] || part.imageBase64 || '';
   };
 
   const handleAvatarChange = async (event) => {
@@ -442,16 +450,32 @@ export default function Dashboard({
                   </div>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
-                    {favoriteParts.map((part) => (
-                      <div key={part.id} className="rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <p className="font-semibold text-[var(--pf-text)]">{part.title}</p>
-                          <StatusBadge status={part.status || 'active'} t={t} />
+                    {favoriteParts.map((part) => {
+                      const previewImage = getPartPreviewImage(part);
+                      return (
+                        <div key={part.id} className="overflow-hidden rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)]">
+                          {previewImage ? (
+                            <img
+                              src={previewImage}
+                              alt={part.title}
+                              loading="lazy"
+                              className="h-28 w-full object-cover"
+                              onError={() => setBrokenPartImages((prev) => ({ ...prev, [part.id]: true }))}
+                            />
+                          ) : (
+                            <div className="flex h-28 items-center justify-center text-xs text-[var(--pf-muted)]">{t.noImage}</div>
+                          )}
+                          <div className="p-4">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="font-semibold text-[var(--pf-text)]">{part.title}</p>
+                              <StatusBadge status={part.status || 'active'} t={t} />
+                            </div>
+                            <p className="text-sm text-[var(--pf-muted)]">{part.brand} / {part.model}</p>
+                            <p className="mt-2 font-black text-[var(--pf-text)]">{currencyFormatter.format(Number(part.price || 0), language)}</p>
+                          </div>
                         </div>
-                        <p className="text-sm text-[var(--pf-muted)]">{part.brand} / {part.model}</p>
-                        <p className="mt-2 font-black text-[var(--pf-text)]">{currencyFormatter.format(Number(part.price || 0), language)}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </section>
@@ -511,15 +535,32 @@ export default function Dashboard({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {visibleParts.map((part) => (
+                    {visibleParts.map((part) => {
+                      const previewImage = getPartPreviewImage(part);
+                      return (
                       <div key={part.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
-                        <div>
-                          <div className="mb-1 flex flex-wrap items-center gap-2">
-                            <p className="font-semibold text-[var(--pf-text)]">{part.title}</p>
-                            <StatusBadge status={part.status || 'active'} t={t} />
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[color:var(--pf-border)] bg-[var(--pf-surface)]">
+                            {previewImage ? (
+                              <img
+                                src={previewImage}
+                                alt={part.title}
+                                loading="lazy"
+                                className="h-full w-full object-cover"
+                                onError={() => setBrokenPartImages((prev) => ({ ...prev, [part.id]: true }))}
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center px-1 text-center text-[10px] text-[var(--pf-muted)]">{t.noImage}</div>
+                            )}
                           </div>
-                          <p className="text-sm text-[var(--pf-muted)]">{part.brand} / {part.model}</p>
-                          <p className="mt-1 font-semibold text-[var(--pf-text)]">{currencyFormatter.format(Number(part.price || 0), language)}</p>
+                          <div className="min-w-0">
+                            <div className="mb-1 flex flex-wrap items-center gap-2">
+                              <p className="font-semibold text-[var(--pf-text)]">{part.title}</p>
+                              <StatusBadge status={part.status || 'active'} t={t} />
+                            </div>
+                            <p className="text-sm text-[var(--pf-muted)]">{part.brand} / {part.model}</p>
+                            <p className="mt-1 font-semibold text-[var(--pf-text)]">{currencyFormatter.format(Number(part.price || 0), language)}</p>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <button type="button" onClick={() => onSetPartStatus(part, 'active')} className="pf-button-secondary px-3 py-2 text-sm">{t.setActive}</button>
@@ -529,7 +570,8 @@ export default function Dashboard({
                           <button type="button" onClick={() => onDeletePart(part)} className="pf-button-danger px-3 py-2 text-sm">{t.delete}</button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </section>
