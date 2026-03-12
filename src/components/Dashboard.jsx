@@ -505,6 +505,66 @@ export default function Dashboard({
                   <button type="button" onClick={() => setPartsFilter('reserved')} className="pf-button-secondary px-4 py-2 text-sm">{t.reserved}</button>
                   <button type="button" onClick={() => setPartsFilter('sold')} className="pf-button-secondary px-4 py-2 text-sm">{t.sold}</button>
                 </div>
+
+                <div className="mb-5 rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
+                  <h3 className="text-base font-semibold text-[var(--pf-text)]">{t.bulkImport}</h3>
+                  <p className="mt-1 text-sm text-[var(--pf-muted)]">{t.importHint}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={handleDownloadTemplate} className="pf-button-secondary px-4 py-2 text-sm">
+                      {t.downloadTemplate}
+                    </button>
+                    <button type="button" onClick={() => csvInputRef.current?.click()} className="pf-button-primary px-4 py-2 text-sm">
+                      {t.importCsv}
+                    </button>
+                    <input
+                      ref={csvInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={handleCsvImport}
+                    />
+                  </div>
+
+                  <h4 className="mt-4 mb-3 text-sm font-semibold text-[var(--pf-text)]">{t.importedRows}</h4>
+                  {importRows.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface)] p-4 text-sm text-[var(--pf-muted)]">
+                      {t.noImportedRows}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {importRows.map((row) => (
+                        <div key={row.id} className="rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface)] p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-semibold text-[var(--pf-text)]">{row.title}</p>
+                            <span className="text-xs text-[var(--pf-muted)]">{row.saved ? t.saved : (row.imagesBase64.length > 0 ? t.rowReady : t.rowNeedsImage)}</span>
+                          </div>
+                          <p className="mt-1 text-sm text-[var(--pf-muted)]">{row.category} • {row.brand} / {row.model}</p>
+                          <p className="mt-1 text-sm font-semibold text-[var(--pf-text)]">{currencyFormatter.format(Number(row.price || 0), language)}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <label className="pf-button-secondary cursor-pointer px-3 py-2 text-sm">
+                              {t.addImage}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(event) => handleImportRowImage(row.id, event.target.files?.[0])}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              disabled={row.saved || row.imagesBase64.length === 0 || savingRowId === row.id}
+                              onClick={() => handleSaveImportRow(row)}
+                              className="pf-button-primary px-3 py-2 text-sm disabled:opacity-60"
+                            >
+                              {savingRowId === row.id ? t.saving : t.saveListing}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {visibleParts.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4 text-sm text-[var(--pf-muted)]">
                     {t.noListingsInView}
@@ -527,6 +587,69 @@ export default function Dashboard({
                           <button type="button" onClick={() => onSetPartStatus(part, 'sold')} className="pf-button-secondary px-3 py-2 text-sm">{t.markSold}</button>
                           <button type="button" onClick={() => onEditPart(part)} className="pf-button-secondary px-3 py-2 text-sm">{t.edit}</button>
                           <button type="button" onClick={() => onDeletePart(part)} className="pf-button-danger px-3 py-2 text-sm">{t.delete}</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : null}
+
+
+
+            {activeSection === 'bulk-import' ? (
+              <section className="rounded-[1.5rem] pf-card p-5">
+                <h2 className="mb-2 text-xl font-bold text-[var(--pf-text)]">{t.bulkImport}</h2>
+                <p className="mb-4 text-sm text-[var(--pf-muted)]">{t.importHint}</p>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <button type="button" onClick={handleDownloadTemplate} className="pf-button-secondary px-4 py-2 text-sm">
+                    {t.downloadTemplate}
+                  </button>
+                  <button type="button" onClick={() => csvInputRef.current?.click()} className="pf-button-primary px-4 py-2 text-sm">
+                    {t.importCsv}
+                  </button>
+                  <input
+                    ref={csvInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={handleCsvImport}
+                  />
+                </div>
+
+                <h3 className="mb-3 text-base font-semibold text-[var(--pf-text)]">{t.importedRows}</h3>
+                {importRows.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4 text-sm text-[var(--pf-muted)]">
+                    {t.noImportedRows}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {importRows.map((row) => (
+                      <div key={row.id} className="rounded-xl border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-semibold text-[var(--pf-text)]">{row.title}</p>
+                          <span className="text-xs text-[var(--pf-muted)]">{row.saved ? t.saved : (row.imagesBase64.length > 0 ? t.rowReady : t.rowNeedsImage)}</span>
+                        </div>
+                        <p className="mt-1 text-sm text-[var(--pf-muted)]">{row.category} • {row.brand} / {row.model}</p>
+                        <p className="mt-1 text-sm font-semibold text-[var(--pf-text)]">{currencyFormatter.format(Number(row.price || 0), language)}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <label className="pf-button-secondary cursor-pointer px-3 py-2 text-sm">
+                            {t.addImage}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(event) => handleImportRowImage(row.id, event.target.files?.[0])}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            disabled={row.saved || row.imagesBase64.length === 0 || savingRowId === row.id}
+                            onClick={() => handleSaveImportRow(row)}
+                            className="pf-button-primary px-3 py-2 text-sm disabled:opacity-60"
+                          >
+                            {savingRowId === row.id ? t.saving : t.saveListing}
+                          </button>
                         </div>
                       </div>
                     ))}

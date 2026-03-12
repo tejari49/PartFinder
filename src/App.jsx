@@ -686,6 +686,36 @@ export default function App() {
     }
   };
 
+  const handleImportPart = async (payload) => {
+  const handleBulkImportParts = async (rows) => {
+    if (!user) {
+      pushToast('Please sign in first.', 'error');
+      return;
+    }
+
+    await handleUpsertPart(payload);
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return;
+    }
+
+    let imported = 0;
+
+    for (const row of rows) {
+      const normalizedRow = {
+        ...row,
+        imagesBase64:
+          Array.isArray(row.imagesBase64) && row.imagesBase64.length > 0
+            ? row.imagesBase64
+            : [BULK_IMPORT_PLACEHOLDER_IMAGE],
+      };
+
+      await handleUpsertPart(normalizedRow);
+      imported += 1;
+    }
+
+    pushToast(`${imported} listings imported.`, 'success');
+  };
+
   const handleEditPart = (part) => {
     if (!user || part.sellerUid !== user.uid) {
       pushToast('Only your own listings can be edited.', 'error');
