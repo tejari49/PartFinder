@@ -38,6 +38,20 @@ const text = {
     seller: 'Seller',
     created: 'Created',
     verified: 'Verified',
+    emailVerified: 'Email verified',
+    phoneVerified: 'Phone verified',
+    documentVerified: 'Document verified',
+    sellerHistory: 'Seller history',
+    listings: 'Listings',
+    contacts: 'Contacts',
+    openReports: 'Open reports',
+    sellingSince: 'Selling since',
+    buyerProtection: 'Buyer protection',
+    buyerProtectionTips: [
+      'Pay only via traceable methods and avoid upfront transfers to unknown accounts.',
+      'Meet at safe public places and inspect the part before handover.',
+      'Report suspicious behavior directly in the app so moderation can react quickly.',
+    ],
     noRatings: 'No ratings yet',
     successfulSales: (count) => `${count} successful sales`,
     inAppChat: 'In-app chat',
@@ -95,6 +109,20 @@ const text = {
     seller: 'Verkaeufer',
     created: 'Erstellt',
     verified: 'Verifiziert',
+    emailVerified: 'E-Mail verifiziert',
+    phoneVerified: 'Telefon verifiziert',
+    documentVerified: 'Dokument verifiziert',
+    sellerHistory: 'Verkaeuferhistorie',
+    listings: 'Inserate',
+    contacts: 'Kontakte',
+    openReports: 'Offene Meldungen',
+    sellingSince: 'Aktiv seit',
+    buyerProtection: 'Kaeuferschutz',
+    buyerProtectionTips: [
+      'Zahle nur ueber nachvollziehbare Zahlungswege und vermeide Vorkasse an unbekannte Konten.',
+      'Treffe dich an sicheren, oeffentlichen Orten und pruefe das Teil vor der Uebergabe.',
+      'Melde auffaelliges Verhalten direkt in der App, damit die Moderation schnell reagieren kann.',
+    ],
     noRatings: 'Noch keine Bewertungen',
     successfulSales: (count) => `${count} erfolgreiche Verkaeufe`,
     inAppChat: 'In-App Chat',
@@ -167,6 +195,7 @@ export default function PartDetailModal({
   part,
   sellerProfile,
   sellerTrust,
+  sellerHistory,
   currentUser,
   onClose,
   onStartChat,
@@ -363,12 +392,34 @@ export default function PartDetailModal({
                   {t.verified}
                 </span>
               ) : null}
+              {sellerTrust?.verification?.email ? <span className="rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-2.5 py-1">{t.emailVerified}</span> : null}
+              {sellerTrust?.verification?.phone ? <span className="rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-2.5 py-1">{t.phoneVerified}</span> : null}
+              {sellerTrust?.verification?.document ? <span className="rounded-full border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] px-2.5 py-1">{t.documentVerified}</span> : null}
               <span>
                 {sellerTrust?.ratingCount
                   ? `${sellerTrust.ratingAverage.toFixed(1)} / 5 (${sellerTrust.ratingCount})`
                   : t.noRatings}
               </span>
               <span>{t.successfulSales(sellerTrust?.soldCount || 0)}</span>
+            </div>
+
+            <div className="mt-4 rounded-[1.1rem] border border-[color:var(--pf-border)] bg-[var(--pf-surface-2)] p-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]">{t.sellerHistory}</p>
+              <div className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
+              <p className="text-[var(--pf-muted)]">{t.listings}: <span className="font-semibold text-[var(--pf-text)]">{sellerHistory?.listingsCount || 0}</span></p>
+              <p className="text-[var(--pf-muted)]">{t.contacts}: <span className="font-semibold text-[var(--pf-text)]">{sellerHistory?.contactCount || 0}</span></p>
+              <p className="text-[var(--pf-muted)]">{t.openReports}: <span className="font-semibold text-[var(--pf-text)]">{sellerHistory?.openReportsCount || 0}</span></p>
+              <p className="text-[var(--pf-muted)]">{t.sellingSince}: <span className="font-semibold text-[var(--pf-text)]">{sellerHistory?.firstListingAt ? formatDateTime(sellerHistory.firstListingAt, null, language) : t.notSpecified}</span></p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-[1.1rem] border border-cyan-400/30 bg-cyan-500/10 p-4">
+              <p className="text-sm font-semibold text-cyan-200">{t.buyerProtection}</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-cyan-100">
+                {t.buyerProtectionTips.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-3">

@@ -525,11 +525,74 @@ export default function App() {
     return next;
   }, [ratings]);
 
+  const sellerHistoryByUid = useMemo(() => {
+    const next = {};
+
+    parts.forEach((part) => {
+      if (!part.sellerUid) return;
+      if (!next[part.sellerUid]) {
+        next[part.sellerUid] = {
+          listingsCount: 0,
+          activeListingsCount: 0,
+          reservedListingsCount: 0,
+          soldCount: 0,
+          firstListingAt: null,
+        };
+      }
+
+      const entry = next[part.sellerUid];
+      entry.listingsCount += 1;
+      const status = part.status || 'active';
+      if (status === 'sold') entry.soldCount += 1;
+      if (status === 'reserved') entry.reservedListingsCount += 1;
+      if (status === 'active') entry.activeListingsCount += 1;
+
+      const seconds = part.createdAt?.seconds || 0;
+      if (!entry.firstListingAt || (seconds && seconds < (entry.firstListingAt?.seconds || 0))) {
+        entry.firstListingAt = part.createdAt || entry.firstListingAt;
+      }
+    });
+
+    const chatsCountBySeller = {};
+    chats.forEach((chat) => {
+      if (!chat.sellerUid) return;
+      chatsCountBySeller[chat.sellerUid] = (chatsCountBySeller[chat.sellerUid] || 0) + 1;
+    });
+
+    const openReportsBySeller = {};
+    reports.forEach((report) => {
+      if (!report.sellerUid) return;
+      if (report.status === 'open' || report.status === 'in_review') {
+        openReportsBySeller[report.sellerUid] = (openReportsBySeller[report.sellerUid] || 0) + 1;
+      }
+    });
+
+    Object.keys(profilesByUid).forEach((uid) => {
+      if (!next[uid]) {
+        next[uid] = {
+          listingsCount: 0,
+          activeListingsCount: 0,
+          reservedListingsCount: 0,
+          soldCount: 0,
+          firstListingAt: null,
+        };
+      }
+    });
+
+    Object.keys(next).forEach((uid) => {
+      next[uid].contactCount = chatsCountBySeller[uid] || 0;
+      next[uid].openReportsCount = openReportsBySeller[uid] || 0;
+    });
+
+    return next;
+  }, [chats, parts, profilesByUid, reports]);
+
   const sellerTrustByUid = useMemo(() => {
     const uids = new Set([
       ...Object.keys(profilesByUid),
       ...Object.keys(sellerSoldCountByUid),
       ...Object.keys(sellerRatingsByUid),
+      ...Object.keys(sellerHistoryByUid),
     ]);
 
     const next = {};
@@ -539,17 +602,26 @@ export default function App() {
       const ratingAverage = ratingCount > 0 ? rating.sum / ratingCount : 0;
       const soldCount = sellerSoldCountByUid[uid] || 0;
       const profile = profilesByUid[uid] || {};
-      const verified = profile.trustedSeller === true || profile.emailVerified === true;
+      const hasEmailVerification = profile.emailVerified === true;
+      const hasPhoneVerification = Boolean(profile.whatsappNumber?.trim());
+      const hasDocumentVerification = profile.trustedSeller === true;
+      const verificationLevel = [hasEmailVerification, hasPhoneVerification, hasDocumentVerification].filter(Boolean).length;
 
       next[uid] = {
         ratingAverage,
         ratingCount,
         soldCount,
-        verified,
+        verified: verificationLevel > 0,
+        verificationLevel,
+        verification: {
+          email: hasEmailVerification,
+          phone: hasPhoneVerification,
+          document: hasDocumentVerification,
+        },
       };
     });
     return next;
-  }, [profilesByUid, sellerRatingsByUid, sellerSoldCountByUid]);
+  }, [profilesByUid, sellerHistoryByUid, sellerRatingsByUid, sellerSoldCountByUid]);
 
   const moderationOpenCount = useMemo(
     () => reports.filter((report) => report.status === 'open' || report.status === 'in_review').length,
@@ -1125,6 +1197,7 @@ export default function App() {
             categoriesCount={categories.length}
             totalSoldCount={totalSoldParts}
             sellerTrustByUid={sellerTrustByUid}
+            sellerHistoryByUid={sellerHistoryByUid}
             isModerator={isModerator}
             reports={reports}
             reportsLoading={reportsLoading}
@@ -1163,6 +1236,7 @@ export default function App() {
             myPartsCount={myParts.length}
             soldCount={totalSoldParts}
             sellerTrustByUid={sellerTrustByUid}
+            sellerHistoryByUid={sellerHistoryByUid}
             onSubmitRating={handleSubmitRating}
             onSubmitReport={handleSubmitReport}
             installAvailable={installAvailable}
